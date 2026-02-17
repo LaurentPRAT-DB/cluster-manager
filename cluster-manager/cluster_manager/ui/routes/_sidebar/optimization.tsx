@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ArrowRight,
+  ArrowUpDown,
   BarChart3,
   Calendar,
+  ChevronDown,
+  ChevronUp,
   Clock,
   DollarSign,
   Lightbulb,
@@ -112,6 +115,50 @@ function ClusterTypeBadge({ type }: { type: string }) {
   );
 }
 
+// Sorting types and helper
+type SortField = "cluster_name" | "cluster_type" | "current_workers" | "avg_efficiency_score" | "recommended_workers" | "potential_cost_savings";
+type SortDirection = "asc" | "desc";
+
+function SortableHeader({
+  label,
+  field,
+  currentSort,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  field: SortField;
+  currentSort: { field: SortField; direction: SortDirection };
+  onSort: (field: SortField) => void;
+  align?: "left" | "center" | "right";
+}) {
+  const isActive = currentSort.field === field;
+  const alignClass = align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start";
+
+  return (
+    <th
+      className={cn(
+        "py-3 px-4 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors select-none",
+        align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left"
+      )}
+      onClick={() => onSort(field)}
+    >
+      <div className={cn("flex items-center gap-1", alignClass)}>
+        {label}
+        {isActive ? (
+          currentSort.direction === "asc" ? (
+            <ChevronUp size={14} className="text-primary" />
+          ) : (
+            <ChevronDown size={14} className="text-primary" />
+          )
+        ) : (
+          <ArrowUpDown size={14} className="text-muted-foreground opacity-50" />
+        )}
+      </div>
+    </th>
+  );
+}
+
 type TabType = "trends" | "oversized" | "jobs" | "schedule";
 
 function OptimizationPage() {
@@ -122,6 +169,51 @@ function OptimizationPage() {
   const { data: jobRecommendations, isLoading: jobsLoading } = useJobRecommendations();
   const { data: scheduleRecommendations, isLoading: scheduleLoading } = useScheduleRecommendations();
   const { data: trendsData, isLoading: trendsLoading } = useUtilizationTrends(30, 7);
+
+  // Sorting state for oversized clusters table
+  const [oversizedSort, setOversizedSort] = useState<{ field: SortField; direction: SortDirection }>({
+    field: "potential_cost_savings",
+    direction: "desc",
+  });
+
+  const handleOversizedSort = (field: SortField) => {
+    setOversizedSort((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  // Sort oversized clusters
+  const sortedOversizedClusters = useMemo(() => {
+    if (!oversizedClusters) return [];
+    return [...oversizedClusters].sort((a, b) => {
+      const { field, direction } = oversizedSort;
+      let comparison = 0;
+
+      switch (field) {
+        case "cluster_name":
+          comparison = a.cluster_name.localeCompare(b.cluster_name);
+          break;
+        case "cluster_type":
+          comparison = a.cluster_type.localeCompare(b.cluster_type);
+          break;
+        case "current_workers":
+          comparison = a.current_workers - b.current_workers;
+          break;
+        case "avg_efficiency_score":
+          comparison = a.avg_efficiency_score - b.avg_efficiency_score;
+          break;
+        case "recommended_workers":
+          comparison = a.recommended_workers - b.recommended_workers;
+          break;
+        case "potential_cost_savings":
+          comparison = a.potential_cost_savings - b.potential_cost_savings;
+          break;
+      }
+
+      return direction === "asc" ? comparison : -comparison;
+    });
+  }, [oversizedClusters, oversizedSort]);
 
   const collectMetrics = useCollectMetrics();
 
@@ -508,22 +600,56 @@ function OptimizationPage() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : oversizedClusters && oversizedClusters.length > 0 ? (
+            ) : sortedOversizedClusters.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
-                      <th className="text-left py-3 px-4 font-medium text-sm">Type</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm">Workers</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm">Efficiency</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm">Recommended</th>
-                      <th className="text-right py-3 px-4 font-medium text-sm">Monthly Savings</th>
+                      <SortableHeader
+                        label="Cluster"
+                        field="cluster_name"
+                        currentSort={oversizedSort}
+                        onSort={handleOversizedSort}
+                      />
+                      <SortableHeader
+                        label="Type"
+                        field="cluster_type"
+                        currentSort={oversizedSort}
+                        onSort={handleOversizedSort}
+                      />
+                      <SortableHeader
+                        label="Workers"
+                        field="current_workers"
+                        currentSort={oversizedSort}
+                        onSort={handleOversizedSort}
+                        align="center"
+                      />
+                      <SortableHeader
+                        label="Efficiency"
+                        field="avg_efficiency_score"
+                        currentSort={oversizedSort}
+                        onSort={handleOversizedSort}
+                        align="center"
+                      />
+                      <SortableHeader
+                        label="Recommended"
+                        field="recommended_workers"
+                        currentSort={oversizedSort}
+                        onSort={handleOversizedSort}
+                        align="center"
+                      />
+                      <SortableHeader
+                        label="Monthly Savings"
+                        field="potential_cost_savings"
+                        currentSort={oversizedSort}
+                        onSort={handleOversizedSort}
+                        align="right"
+                      />
                       <th className="text-right py-3 px-4 font-medium text-sm"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {oversizedClusters.map((cluster) => (
+                    {sortedOversizedClusters.map((cluster) => (
                       <tr key={cluster.cluster_id} className="border-b hover:bg-muted/50 transition-colors">
                         <td className="py-3 px-4">
                           <Link
