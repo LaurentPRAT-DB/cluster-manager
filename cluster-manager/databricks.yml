@@ -1,0 +1,33 @@
+bundle:
+  name: cluster-manager
+
+variables:
+  app_name:
+    description: Name of the Databricks App
+    default: cluster-manager
+  sql_warehouse_id:
+    description: SQL Warehouse ID for billing queries (optional)
+    default: ""
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      root_path: /Users/${workspace.current_user.userName}/.bundle/${bundle.name}/dev
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Shared/.bundle/${bundle.name}/prod
+
+resources:
+  apps:
+    cluster_manager:
+      name: ${var.app_name}
+      description: "Databricks Cluster Management & Cost Optimization Dashboard"
+      source_code_path: .
+
+      permissions:
+        - user_name: ${workspace.current_user.userName}
+          level: CAN_MANAGE
