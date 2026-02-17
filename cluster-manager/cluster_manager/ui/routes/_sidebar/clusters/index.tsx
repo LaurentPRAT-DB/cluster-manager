@@ -215,7 +215,7 @@ function ClusterCard({ cluster }: { cluster: ClusterSummary }) {
   );
 }
 
-function ClusterTableRow({ cluster }: { cluster: ClusterSummary }) {
+function ClusterTableRow({ cluster, policyMap }: { cluster: ClusterSummary; policyMap: Map<string, string> }) {
   const startCluster = useStartCluster();
   const stopCluster = useStopCluster();
 
@@ -271,6 +271,9 @@ function ClusterTableRow({ cluster }: { cluster: ClusterSummary }) {
       </td>
       <td className="py-3 px-4 text-sm text-muted-foreground truncate max-w-[200px]">
         {cluster.creator_user_name || "-"}
+      </td>
+      <td className="py-3 px-4 text-sm text-muted-foreground truncate max-w-[150px]">
+        {cluster.policy_id ? policyMap.get(cluster.policy_id) || "-" : "-"}
       </td>
       <td className="py-3 px-4 text-sm text-center">
         {workersDisplay}
@@ -330,7 +333,7 @@ function ClusterTableRow({ cluster }: { cluster: ClusterSummary }) {
   );
 }
 
-type SortColumn = "name" | "state" | "creator" | "workers" | "uptime" | "dbu" | "runtime";
+type SortColumn = "name" | "state" | "creator" | "policy" | "workers" | "uptime" | "dbu" | "runtime";
 type SortDirection = "asc" | "desc";
 
 interface SortState {
@@ -395,7 +398,7 @@ const stateOrder: Record<string, number> = {
   UNKNOWN: 7,
 };
 
-function ClusterTable({ clusters }: { clusters: ClusterSummary[] }) {
+function ClusterTable({ clusters, policyMap }: { clusters: ClusterSummary[]; policyMap: Map<string, string> }) {
   const [sort, setSort] = useState<SortState>({ column: "state", direction: "asc" });
 
   const handleSort = (column: SortColumn) => {
@@ -418,6 +421,11 @@ function ClusterTable({ clusters }: { clusters: ClusterSummary[] }) {
           break;
         case "creator":
           comparison = (a.creator_user_name || "").localeCompare(b.creator_user_name || "");
+          break;
+        case "policy":
+          const policyA = a.policy_id ? policyMap.get(a.policy_id) || "" : "";
+          const policyB = b.policy_id ? policyMap.get(b.policy_id) || "" : "";
+          comparison = policyA.localeCompare(policyB);
           break;
         case "workers":
           comparison = getWorkerCount(a) - getWorkerCount(b);
@@ -448,6 +456,7 @@ function ClusterTable({ clusters }: { clusters: ClusterSummary[] }) {
               <SortableHeader column="name" label="Name" currentSort={sort} onSort={handleSort} />
               <SortableHeader column="state" label="Status" currentSort={sort} onSort={handleSort} />
               <SortableHeader column="creator" label="Creator" currentSort={sort} onSort={handleSort} />
+              <SortableHeader column="policy" label="Policy" currentSort={sort} onSort={handleSort} />
               <SortableHeader column="workers" label="Workers" currentSort={sort} onSort={handleSort} align="center" />
               <SortableHeader column="uptime" label="Uptime" currentSort={sort} onSort={handleSort} align="center" />
               <SortableHeader column="dbu" label="DBU/h" currentSort={sort} onSort={handleSort} align="center" />
@@ -457,7 +466,7 @@ function ClusterTable({ clusters }: { clusters: ClusterSummary[] }) {
           </thead>
           <tbody>
             {sortedClusters.map((cluster) => (
-              <ClusterTableRow key={cluster.cluster_id} cluster={cluster} />
+              <ClusterTableRow key={cluster.cluster_id} cluster={cluster} policyMap={policyMap} />
             ))}
           </tbody>
         </table>
@@ -475,6 +484,15 @@ function ClustersPage() {
   const { data: clusters, isLoading, error, refetch } = useClusters();
   const { data: metrics } = useMetricsSummary();
   const { data: policies } = usePolicies();
+
+  // Create policy map for displaying policy names
+  const policyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (policies) {
+      policies.forEach((p) => map.set(p.policy_id, p.name));
+    }
+    return map;
+  }, [policies]);
 
   // Get the selected policy name
   const selectedPolicy = useMemo(() => {
@@ -615,7 +633,7 @@ function ClustersPage() {
         </div>
       ) : filteredClusters.length > 0 ? (
         viewMode === "list" ? (
-          <ClusterTable clusters={filteredClusters} />
+          <ClusterTable clusters={filteredClusters} policyMap={policyMap} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredClusters.map((cluster) => (
