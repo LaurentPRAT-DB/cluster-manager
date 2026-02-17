@@ -1,145 +1,251 @@
 # Databricks Cluster Manager
 
-A full-stack Databricks application for administrators to manage clusters with a focus on **cost optimization** and **usage efficiency**.
+## Administrator's Guide
 
-## Features
+A centralized management console for Databricks workspace administrators to **control costs**, **optimize resource utilization**, and **maintain governance** over compute clusters.
 
-- **Cluster Management**: View all clusters, start/stop operations (Safe Mode - no terminate)
-- **Cost Analytics**: DBU usage trends, billing data from Unity Catalog system tables
-- **Optimization Insights**: Idle cluster alerts, recommendations for cost savings
-- **Policy Overview**: View cluster policies and their usage
+---
+
+## Why This Tool?
+
+As a Databricks administrator, you face several challenges:
+
+| Challenge | Impact | How Cluster Manager Helps |
+|-----------|--------|---------------------------|
+| **Uncontrolled costs** | DBU expenses can spiral without visibility | Real-time cost tracking with Unity Catalog billing data |
+| **Idle resources** | Running clusters with no activity waste money | Automated idle detection with wasted DBU calculations |
+| **No single pane of glass** | Switching between UI, CLI, and notebooks | Unified dashboard for all cluster operations |
+| **Risky operations** | Accidental cluster deletion causes disruption | Safe Mode prevents permanent cluster termination |
+| **Configuration drift** | Clusters without auto-termination or autoscaling | Actionable optimization recommendations |
+
+---
+
+## Key Objectives
+
+### 1. Cost Visibility & Control
+
+**Problem**: DBU costs accumulate across dozens of clusters with no easy way to identify cost drivers.
+
+**Solution**:
+- **Billing Dashboard** pulls data from `system.billing.usage` Unity Catalog table
+- View total DBU consumption over configurable time periods (7/30/90 days)
+- Identify **top consuming clusters** with percentage breakdown
+- Track **daily usage trends** to spot anomalies
+- Estimated cost calculations (configurable DBU rate)
+
+```
+Example insight: "Cluster 'data-science-dev' consumed 2,450 DBUs (35% of total)
+in the last 30 days, estimated cost: $367.50"
+```
+
+### 2. Idle Resource Detection
+
+**Problem**: Clusters left running overnight or over weekends drain budget.
+
+**Solution**:
+- Automatic detection of clusters running with **no activity for 30+ minutes**
+- **Wasted DBU calculation** showing exactly how much idle time costs
+- Prioritized alerts sorted by cost impact
+- Direct action: stop idle clusters with one click
+
+```
+Example alert: "Cluster 'analytics-prod' has been idle for 4 hours 23 minutes.
+Estimated wasted DBUs: 52.3 (~$7.85)"
+```
+
+### 3. Optimization Recommendations
+
+**Problem**: Sub-optimal cluster configurations increase costs without improving performance.
+
+**Solution**: Automated analysis generates actionable recommendations:
+
+| Issue Detected | Recommendation | Priority |
+|----------------|----------------|----------|
+| No auto-termination | Set 30-120 min timeout | High |
+| Large fixed-size cluster (10+ workers) | Enable autoscaling | Medium |
+| Running 24+ hours continuously | Review if needed; use job clusters | Medium/High |
+| Wide autoscale range (>20 workers) | Consider tighter bounds | Low |
+| Old Databricks Runtime (<13.x) | Upgrade for 20%+ performance gains | Low |
+
+### 4. Safe Cluster Operations
+
+**Problem**: Administrative accidents (wrong cluster terminated) cause production outages.
+
+**Solution**: **Safe Mode** by design:
+- **Start** clusters - Enabled
+- **Stop** clusters (preserves configuration) - Enabled
+- **Terminate/Delete** clusters - Disabled
+
+This ensures no permanent cluster loss through the UI. Configuration remains intact for restart.
+
+### 5. Policy Compliance Monitoring
+
+**Problem**: Clusters created outside of approved policies bypass governance controls.
+
+**Solution**:
+- View all cluster policies in the workspace
+- See which clusters use which policies
+- Identify clusters running without any policy (potential governance gap)
+
+---
+
+## Dashboard Views
+
+### Clusters Overview
+- **Real-time status**: Running, Pending, Terminated, Error
+- **Resource allocation**: Workers, node types, autoscale settings
+- **Uptime tracking**: How long each cluster has been running
+- **Quick actions**: Start/Stop with confirmation
+
+### Analytics
+- **Cost summary cards**: Total DBUs, estimated cost, time period
+- **Trend charts**: Daily DBU consumption visualization
+- **Top consumers**: Ranked list with percentage of total
+- **Per-cluster breakdown**: Drill-down into individual cluster costs
+
+### Policies
+- **Policy inventory**: All cluster policies with definitions
+- **Usage mapping**: Which clusters are using each policy
+- **Compliance gaps**: Clusters without policy assignment
+
+---
 
 ## Architecture
 
-- **Backend**: FastAPI (Python) using Databricks SDK
-- **Frontend**: React + TypeScript with TanStack Router & Query
-- **Deployment**: Databricks Asset Bundles (DABS)
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Databricks App                           │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐         ┌─────────────────────────┐   │
+│  │   React UI      │  HTTP   │   FastAPI Backend       │   │
+│  │   (TypeScript)  │◄───────►│   (Python)              │   │
+│  └─────────────────┘         └───────────┬─────────────┘   │
+│                                          │                  │
+│                              ┌───────────▼─────────────┐   │
+│                              │   Databricks SDK        │   │
+│                              └───────────┬─────────────┘   │
+└──────────────────────────────────────────│──────────────────┘
+                                           │
+           ┌───────────────────────────────┼───────────────────────────────┐
+           │                               │                               │
+           ▼                               ▼                               ▼
+   ┌───────────────┐            ┌───────────────────┐           ┌───────────────┐
+   │ Clusters API  │            │ SQL Warehouse     │           │ Policies API  │
+   │ (start/stop)  │            │ (billing queries) │           │ (governance)  │
+   └───────────────┘            └───────────────────┘           └───────────────┘
+                                         │
+                                         ▼
+                              ┌───────────────────────┐
+                              │ system.billing.usage  │
+                              │ (Unity Catalog)       │
+                              └───────────────────────┘
+```
+
+---
 
 ## Prerequisites
 
-- Python 3.10+
-- Node.js 18+ (or Bun)
-- Databricks CLI configured
-- Access to Unity Catalog `system.billing.usage` table (for cost analytics)
-- SQL Warehouse (for billing queries)
+Before deploying, ensure you have:
 
-## Project Structure
+| Requirement | Purpose | How to Verify |
+|-------------|---------|---------------|
+| **Unity Catalog** | Access to `system.billing.usage` table | `SELECT * FROM system.billing.usage LIMIT 1` |
+| **SQL Warehouse** | Execute billing queries | Check SQL Warehouses in workspace |
+| **Cluster Admin permissions** | Start/stop clusters | `CAN_MANAGE` on clusters |
+| **Databricks CLI** | Deploy the app | `databricks auth login` |
 
-```
-cluster-manager/
-├── databricks.yml          # DABS configuration
-├── app.yaml                # Databricks App config
-├── pyproject.toml          # Python dependencies
-└── src/cluster_manager/
-    ├── backend/            # FastAPI backend
-    │   ├── app.py          # Main app
-    │   ├── core.py         # Config & dependencies
-    │   ├── models.py       # Pydantic models
-    │   └── routers/        # API endpoints
-    │       ├── clusters.py
-    │       ├── billing.py
-    │       ├── metrics.py
-    │       └── policies.py
-    └── ui/                 # React frontend
-        ├── routes/         # Page components
-        ├── lib/            # API hooks & utils
-        └── styles/         # CSS
-```
-
-## Local Development
-
-### Backend
-
-```bash
-# Create virtual environment
-cd cluster-manager
-python -m venv .venv
-source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
-
-# Install dependencies
-pip install -e .
-
-# Set environment variables
-export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
-export DATABRICKS_TOKEN=your-token
-
-# Run backend
-uvicorn cluster_manager.backend.app:app --reload --port 8000
-```
-
-### Frontend
-
-```bash
-cd src/cluster_manager/ui
-
-# Install dependencies
-npm install  # or bun install
-
-# Run development server
-npm run dev  # or bun dev
-```
-
-The frontend will be available at `http://localhost:5173` and proxy API requests to the backend.
+---
 
 ## Deployment
 
-### Using DABS
+### Quick Start
 
 ```bash
-# Validate bundle
-databricks bundle validate
+# Clone and navigate
+cd cluster-manager
 
-# Deploy to dev
+# Deploy to your workspace
 databricks bundle deploy -t dev
 
-# Deploy to production
-databricks bundle deploy -t prod
+# Access the app
+databricks bundle open -t dev
 ```
 
 ### Configuration
 
-Set the SQL Warehouse ID for billing queries:
+Set the SQL Warehouse for billing queries:
 
 ```bash
-databricks bundle deploy -t dev -var="sql_warehouse_id=your-warehouse-id"
+# Option 1: Via deployment variable
+databricks bundle deploy -t dev -var="sql_warehouse_id=abc123def456"
+
+# Option 2: Via environment variable
+export CLUSTER_MANAGER_SQL_WAREHOUSE_ID=abc123def456
 ```
 
-Or set in your environment:
-```bash
-export CLUSTER_MANAGER_SQL_WAREHOUSE_ID=your-warehouse-id
-```
+---
 
-## API Endpoints
+## API Reference
 
-### Clusters
-- `GET /api/clusters` - List all clusters
-- `GET /api/clusters/{id}` - Get cluster details
-- `POST /api/clusters/{id}/start` - Start a cluster
-- `POST /api/clusters/{id}/stop` - Stop a cluster (Safe Mode)
-- `GET /api/clusters/{id}/events` - Get cluster events
+### Cluster Operations
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/clusters` | GET | List all clusters with state and metrics |
+| `/api/clusters/{id}` | GET | Detailed cluster configuration |
+| `/api/clusters/{id}/start` | POST | Start a terminated cluster |
+| `/api/clusters/{id}/stop` | POST | Stop a running cluster (Safe Mode) |
+| `/api/clusters/{id}/events` | GET | Recent cluster events |
 
-### Billing (requires Unity Catalog)
-- `GET /api/billing/summary` - DBU usage summary
-- `GET /api/billing/by-cluster` - Usage by cluster
-- `GET /api/billing/trend` - Daily usage trend
-- `GET /api/billing/top-consumers` - Top consuming clusters
+### Billing & Analytics
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/billing/summary` | GET | Total DBU usage and estimated cost |
+| `/api/billing/by-cluster` | GET | DBU breakdown per cluster |
+| `/api/billing/trend` | GET | Daily usage for charting |
+| `/api/billing/top-consumers` | GET | Ranked list of cost drivers |
 
-### Metrics
-- `GET /api/metrics/summary` - Cluster metrics summary
-- `GET /api/metrics/idle-clusters` - Idle cluster alerts
-- `GET /api/metrics/recommendations` - Optimization recommendations
+### Metrics & Recommendations
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/metrics/summary` | GET | Workspace-wide cluster metrics |
+| `/api/metrics/idle-clusters` | GET | Idle cluster alerts with wasted DBU |
+| `/api/metrics/recommendations` | GET | Optimization suggestions |
 
 ### Policies
-- `GET /api/policies` - List cluster policies
-- `GET /api/policies/{id}` - Get policy details
-- `GET /api/policies/{id}/usage` - Clusters using policy
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/policies` | GET | List all cluster policies |
+| `/api/policies/{id}` | GET | Policy details |
+| `/api/policies/{id}/usage` | GET | Clusters using this policy |
 
-## Safe Mode
+---
 
-This application operates in **Safe Mode**, which means:
-- Cluster **Start** and **Stop** operations are available
-- Cluster **Terminate** (permanent deletion) is **disabled**
-- This prevents accidental cluster loss
+## Security Considerations
+
+- **Authentication**: Uses Databricks App OAuth (inherits user permissions)
+- **Authorization**: Operations are limited to what the logged-in user can perform
+- **Safe Mode**: No permanent cluster deletion through this UI
+- **Audit**: All actions are logged through standard Databricks audit logs
+
+---
+
+## Roadmap
+
+Future enhancements for administrators:
+
+- [ ] **Scheduled reports**: Weekly cost summary emails
+- [ ] **Budget alerts**: Notifications when DBU thresholds are exceeded
+- [ ] **Auto-stop policies**: Automatically stop idle clusters
+- [ ] **Tag-based cost allocation**: Group costs by team/project tags
+- [ ] **Comparison views**: Month-over-month cost trends
+
+---
+
+## Support
+
+For issues or feature requests, please contact your platform team or open an issue in the repository.
+
+---
 
 ## License
 
