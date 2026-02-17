@@ -129,7 +129,7 @@ def _cluster_to_detail(cluster: ClusterDetails) -> ClusterDetail:
         spark_env_vars=cluster.spark_env_vars or {},
         init_scripts=[s.as_dict() for s in (cluster.init_scripts or [])],
         cluster_log_conf=cluster.cluster_log_conf.as_dict() if cluster.cluster_log_conf else None,
-        policy_id=cluster.policy_id,
+        # policy_id already included from summary.model_dump()
         enable_elastic_disk=enable_elastic_disk,
         disk_spec=disk_spec.as_dict() if disk_spec else None,
         single_user_name=cluster.single_user_name,

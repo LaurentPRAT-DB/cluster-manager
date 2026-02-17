@@ -81,7 +81,7 @@ class ClusterDetail(ClusterSummary):
     spark_env_vars: dict[str, str] = Field(default_factory=dict)
     init_scripts: list[dict] = Field(default_factory=list)
     cluster_log_conf: dict | None = None
-    policy_id: str | None = None
+    # policy_id inherited from ClusterSummary
     enable_elastic_disk: bool | None = None
     disk_spec: dict | None = None
     single_user_name: str | None = None
