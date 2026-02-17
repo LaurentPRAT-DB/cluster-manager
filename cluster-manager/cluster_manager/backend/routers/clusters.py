@@ -103,6 +103,7 @@ def _cluster_to_summary(cluster: ClusterDetails) -> ClusterSummary:
         last_activity_time=_ms_to_datetime(getattr(cluster, 'last_activity_time', None)),
         uptime_minutes=_calculate_uptime_minutes(cluster),
         estimated_dbu_per_hour=_estimate_dbu_per_hour(cluster),
+        policy_id=cluster.policy_id,
     )
 
 

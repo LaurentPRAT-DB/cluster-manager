@@ -64,6 +64,7 @@ class ClusterSummary(BaseModel):
     last_activity_time: datetime | None = None
     uptime_minutes: int = 0
     estimated_dbu_per_hour: float = 0.0
+    policy_id: str | None = None
 
 
 class ClusterDetail(ClusterSummary):

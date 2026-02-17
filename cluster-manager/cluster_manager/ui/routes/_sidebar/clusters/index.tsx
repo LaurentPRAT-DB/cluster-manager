@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   AlertCircle,
@@ -13,8 +13,10 @@ import {
   Loader2,
   Play,
   RefreshCw,
+  Shield,
   Square,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,10 +25,16 @@ import {
   ClusterSummary,
   useClusters,
   useMetricsSummary,
+  usePolicies,
   useStartCluster,
   useStopCluster,
 } from "@/lib/api";
 import { cn, formatDuration, formatNumber } from "@/lib/utils";
+
+// Search params validation
+interface ClusterSearchParams {
+  policy?: string;
+}
 
 const stateColors: Record<string, { bg: string; text: string; dot: string }> = {
   RUNNING: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", dot: "bg-green-500" },
@@ -469,8 +477,28 @@ type ViewMode = "grid" | "list";
 
 function ClustersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const { policy: policyFilter } = Route.useSearch();
+  const navigate = useNavigate();
   const { data: clusters, isLoading, error, refetch } = useClusters();
   const { data: metrics } = useMetricsSummary();
+  const { data: policies } = usePolicies();
+
+  // Get the selected policy name
+  const selectedPolicy = useMemo(() => {
+    if (!policyFilter || !policies) return null;
+    return policies.find((p) => p.policy_id === policyFilter);
+  }, [policyFilter, policies]);
+
+  // Filter clusters by policy if a policy filter is active
+  const filteredClusters = useMemo(() => {
+    if (!clusters) return [];
+    if (!policyFilter) return clusters;
+    return clusters.filter((cluster) => cluster.policy_id === policyFilter);
+  }, [clusters, policyFilter]);
+
+  const clearPolicyFilter = () => {
+    navigate({ to: "/clusters", search: {} });
+  };
 
   if (error) {
     return (
@@ -535,6 +563,30 @@ function ClustersPage() {
         </div>
       </div>
 
+      {/* Policy Filter Banner */}
+      {selectedPolicy && (
+        <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Shield className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">
+                Filtered by policy: <span className="text-primary">{selectedPolicy.name}</span>
+              </p>
+              {selectedPolicy.description && (
+                <p className="text-xs text-muted-foreground mt-0.5">{selectedPolicy.description}</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={clearPolicyFilter}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-background hover:bg-muted rounded-md transition-colors"
+          >
+            <X size={14} />
+            Clear filter
+          </button>
+        </div>
+      )}
+
       {/* Metrics Summary */}
       {metrics && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -568,16 +620,31 @@ function ClustersPage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : clusters && clusters.length > 0 ? (
+      ) : filteredClusters.length > 0 ? (
         viewMode === "list" ? (
-          <ClusterTable clusters={clusters} />
+          <ClusterTable clusters={filteredClusters} />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {clusters.map((cluster) => (
+            {filteredClusters.map((cluster) => (
               <ClusterCard key={cluster.cluster_id} cluster={cluster} />
             ))}
           </div>
         )
+      ) : policyFilter && clusters && clusters.length > 0 ? (
+        <div className="text-center py-12">
+          <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-lg font-semibold mb-2">No clusters using this policy</h2>
+          <p className="text-muted-foreground mb-4">
+            No clusters are currently configured with the selected policy.
+          </p>
+          <button
+            onClick={clearPolicyFilter}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+          >
+            <X size={16} />
+            Clear filter
+          </button>
+        </div>
       ) : (
         <div className="text-center py-12">
           <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -593,4 +660,9 @@ function ClustersPage() {
 
 export const Route = createFileRoute("/_sidebar/clusters/")({
   component: ClustersPage,
+  validateSearch: (search: Record<string, unknown>): ClusterSearchParams => {
+    return {
+      policy: typeof search.policy === "string" ? search.policy : undefined,
+    };
+  },
 });

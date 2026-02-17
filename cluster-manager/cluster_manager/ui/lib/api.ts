@@ -16,6 +16,7 @@ export interface ClusterSummary {
   last_activity_time: string | null;
   uptime_minutes: number;
   estimated_dbu_per_hour: number;
+  policy_id: string | null;
 }
 
 export interface ClusterDetail extends ClusterSummary {
