@@ -247,9 +247,20 @@ Future enhancements for administrators:
 
 | Document | Description |
 |----------|-------------|
-| [Optimization Strategies](docs/OPTIMIZATION_STRATEGIES.md) | Complete guide to all 42+ cost optimization checks with savings estimates |
+| [Architecture](docs/ARCHITECTURE.md) | System architecture, data flows, and technology stack |
+| [API Reference](docs/API.md) | Complete API documentation with examples |
+| [Deployment Guide](docs/DEPLOYMENT.md) | Local development, deployment, and operations |
+| [Contributing Guide](docs/CONTRIBUTING.md) | Development workflow and coding standards |
+| [Data Dictionary](docs/DATA_DICTIONARY.md) | All data models and schemas |
+| [Optimization Strategies](docs/OPTIMIZATION_STRATEGIES.md) | Complete guide to all 42+ cost optimization checks |
+
+### External References
+
+| Resource | Description |
+|----------|-------------|
 | [Databricks Cost Management](https://docs.databricks.com/administration-guide/account-settings/billable-usage.html) | Official Databricks billing documentation |
 | [Cluster Best Practices](https://docs.databricks.com/clusters/cluster-config-best-practices.html) | Databricks cluster configuration guide |
+| [Databricks Apps](https://docs.databricks.com/en/dev-tools/databricks-apps/index.html) | Databricks Apps platform documentation |
 
 ---
 
