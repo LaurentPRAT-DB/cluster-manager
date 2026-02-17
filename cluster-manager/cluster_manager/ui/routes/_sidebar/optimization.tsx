@@ -13,9 +13,24 @@ import {
   RefreshCw,
   Target,
   TrendingDown,
+  TrendingUp,
   Users,
   Zap,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { toast } from "sonner";
 
 import {
@@ -24,8 +39,9 @@ import {
   useOptimizationSummary,
   useOversizedClusters,
   useScheduleRecommendations,
+  useUtilizationTrends,
 } from "@/lib/api";
-import { cn, formatCurrency, formatNumber } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 
 function MetricCard({
   title,
@@ -96,15 +112,16 @@ function ClusterTypeBadge({ type }: { type: string }) {
   );
 }
 
-type TabType = "oversized" | "jobs" | "schedule";
+type TabType = "trends" | "oversized" | "jobs" | "schedule";
 
 function OptimizationPage() {
-  const [activeTab, setActiveTab] = useState<TabType>("oversized");
+  const [activeTab, setActiveTab] = useState<TabType>("trends");
 
   const { data: summary, isLoading: summaryLoading } = useOptimizationSummary();
   const { data: oversizedClusters, isLoading: oversizedLoading } = useOversizedClusters(5);
   const { data: jobRecommendations, isLoading: jobsLoading } = useJobRecommendations();
   const { data: scheduleRecommendations, isLoading: scheduleLoading } = useScheduleRecommendations();
+  const { data: trendsData, isLoading: trendsLoading } = useUtilizationTrends(30, 7);
 
   const collectMetrics = useCollectMetrics();
 
@@ -120,10 +137,26 @@ function OptimizationPage() {
   };
 
   const tabs = [
+    { id: "trends" as const, label: "Utilization Trends", icon: TrendingUp },
     { id: "oversized" as const, label: "Oversized Clusters", icon: TrendingDown },
     { id: "jobs" as const, label: "Job Recommendations", icon: Play },
     { id: "schedule" as const, label: "Schedule Optimization", icon: Calendar },
   ];
+
+  // Prepare chart data - reverse to show oldest first
+  const chartData = trendsData?.trends
+    ?.slice()
+    .reverse()
+    .map((d) => ({
+      date: formatDate(d.date),
+      efficiency: d.avg_efficiency,
+      efficiencyMA: d.efficiency_moving_avg,
+      dbu: d.total_dbu,
+      dbuMA: d.dbu_moving_avg,
+      oversized: d.oversized_count,
+      underutilized: d.underutilized_count,
+      clusters: d.total_clusters,
+    })) || [];
 
   return (
     <div className="space-y-6">
@@ -226,6 +259,241 @@ function OptimizationPage() {
 
       {/* Tab Content */}
       <div className="bg-card rounded-lg border">
+        {activeTab === "trends" && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-blue-500" />
+                <h2 className="text-lg font-semibold">Utilization Trends</h2>
+              </div>
+              {trendsData?.summary && (
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    {trendsData.summary.data_points} days of data
+                  </span>
+                  {trendsData.summary.efficiency_trend && (
+                    <span className={cn(
+                      "px-2 py-1 rounded-full text-xs font-medium",
+                      trendsData.summary.efficiency_trend === "improving"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                    )}>
+                      Efficiency {trendsData.summary.efficiency_trend}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              Historical cluster utilization metrics with 7-day moving averages. Click "Collect Metrics" daily to build trend data.
+            </p>
+
+            {trendsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : chartData.length > 0 ? (
+              <div className="space-y-8">
+                {/* Efficiency Chart */}
+                <div>
+                  <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <BarChart3 size={16} />
+                    Efficiency Score (%)
+                  </h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="efficiencyGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                        domain={[0, 100]}
+                        tickFormatter={(v) => `${v}%`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-popover border rounded-lg p-3 shadow-lg">
+                                <p className="font-medium">{payload[0].payload.date}</p>
+                                <p className="text-sm text-primary">
+                                  Efficiency: {formatNumber(payload[0].payload.efficiency, 1)}%
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  7-day MA: {formatNumber(payload[0].payload.efficiencyMA, 1)}%
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="efficiency"
+                        stroke="hsl(var(--primary))"
+                        fill="url(#efficiencyGradient)"
+                        strokeWidth={2}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="efficiencyMA"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        name="7-day MA"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* DBU Usage Chart */}
+                <div>
+                  <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Zap size={16} />
+                    Daily DBU Consumption
+                  </h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(v) => formatNumber(v, 0)}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-popover border rounded-lg p-3 shadow-lg">
+                                <p className="font-medium">{payload[0].payload.date}</p>
+                                <p className="text-sm text-blue-600">
+                                  DBU: {formatNumber(payload[0].payload.dbu, 1)}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  7-day MA: {formatNumber(payload[0].payload.dbuMA, 1)}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Est. Cost: {formatCurrency(payload[0].payload.dbu * 0.15)}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar
+                        dataKey="dbu"
+                        fill="hsl(217, 91%, 60%)"
+                        radius={[4, 4, 0, 0]}
+                        name="Daily DBU"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="dbuMA"
+                        stroke="hsl(217, 91%, 40%)"
+                        strokeWidth={2}
+                        dot={false}
+                        name="7-day MA"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Cluster Health Chart */}
+                <div>
+                  <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <AlertTriangle size={16} />
+                    Cluster Health Overview
+                  </h3>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-popover border rounded-lg p-3 shadow-lg">
+                                <p className="font-medium">{payload[0].payload.date}</p>
+                                <p className="text-sm">
+                                  Total Clusters: {payload[0].payload.clusters}
+                                </p>
+                                <p className="text-sm text-red-600">
+                                  Oversized: {payload[0].payload.oversized}
+                                </p>
+                                <p className="text-sm text-yellow-600">
+                                  Underutilized: {payload[0].payload.underutilized}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="oversized"
+                        stroke="hsl(0, 84%, 60%)"
+                        strokeWidth={2}
+                        name="Oversized"
+                        dot={{ r: 3 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="underutilized"
+                        stroke="hsl(45, 93%, 47%)"
+                        strokeWidth={2}
+                        name="Underutilized"
+                        dot={{ r: 3 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No historical data available</p>
+                <p className="text-sm mt-1">
+                  Click "Collect Metrics" to start gathering utilization data for trend analysis
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "oversized" && (
           <div className="p-6">
             <div className="flex items-center gap-2 mb-4">
