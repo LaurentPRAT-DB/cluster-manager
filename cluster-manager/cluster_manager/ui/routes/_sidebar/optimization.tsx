@@ -949,7 +949,7 @@ function AutoscalingAnalysisListRow({ cluster }: { cluster: ClusterAutoscalingAn
         <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
       </td>
       <td className="py-3 px-4 text-right">
-        <ClusterActionsDropdown clusterId={cluster.cluster_id} />
+        <ClusterActionsDropdown clusterId={cluster.cluster_id} clusterType={cluster.cluster_type} />
       </td>
     </tr>
   );
@@ -1004,7 +1004,7 @@ function NodeTypeAnalysisListRow({ cluster }: { cluster: ClusterNodeTypeAnalysis
         <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
       </td>
       <td className="py-3 px-4 text-right">
-        <ClusterActionsDropdown clusterId={cluster.cluster_id} />
+        <ClusterActionsDropdown clusterId={cluster.cluster_id} clusterType={cluster.cluster_type} />
       </td>
     </tr>
   );
@@ -2043,7 +2043,7 @@ function OptimizationPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <ClusterActionsDropdown clusterId={cluster.cluster_id} />
+                          <ClusterActionsDropdown clusterId={cluster.cluster_id} clusterType={cluster.cluster_type} />
                         </td>
                       </tr>
                     ))}

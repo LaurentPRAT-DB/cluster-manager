@@ -10,11 +10,15 @@ import {
 
 interface ClusterActionsDropdownProps {
   clusterId: string;
+  clusterType?: string; // "JOB", "INTERACTIVE", "SQL", "PIPELINE", etc.
 }
 
-export function ClusterActionsDropdown({ clusterId }: ClusterActionsDropdownProps) {
+export function ClusterActionsDropdown({ clusterId, clusterType }: ClusterActionsDropdownProps) {
   const { data: workspaceInfo } = useWorkspaceInfo();
   const navigate = useNavigate();
+
+  // Job clusters are ephemeral and often unavailable after job completion
+  const isJobCluster = clusterType === "JOB";
 
   // Construct Databricks workspace URLs using the hash-based routing format
   const workspaceHost = workspaceInfo?.host || "";
@@ -41,12 +45,16 @@ export function ClusterActionsDropdown({ clusterId }: ClusterActionsDropdownProp
 
   return (
     <DropdownMenu trigger={<MoreVertical size={16} />}>
-      <DropdownMenuLabel>View in App</DropdownMenuLabel>
-      <DropdownMenuItem icon={<Settings size={14} />} onClick={handleViewInApp}>
-        Cluster Details
-      </DropdownMenuItem>
-
-      <DropdownMenuSeparator />
+      {/* Hide "View in App" for job clusters since they're ephemeral */}
+      {!isJobCluster && (
+        <>
+          <DropdownMenuLabel>View in App</DropdownMenuLabel>
+          <DropdownMenuItem icon={<Settings size={14} />} onClick={handleViewInApp}>
+            Cluster Details
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      )}
       <DropdownMenuLabel>Open in Databricks</DropdownMenuLabel>
 
       <DropdownMenuItem
