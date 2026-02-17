@@ -207,3 +207,106 @@ class PolicyUsage(BaseModel):
     policy_name: str
     cluster_count: int
     clusters: list[ClusterSummary] = Field(default_factory=list)
+
+
+# --- Optimization Models ---
+
+
+class ClusterType(str, Enum):
+    """Cluster type classification based on source."""
+    JOB = "JOB"
+    INTERACTIVE = "INTERACTIVE"
+    SQL = "SQL"
+    PIPELINE = "PIPELINE"
+    MODELS = "MODELS"
+
+
+class ClusterUtilizationMetric(BaseModel):
+    """Daily utilization metrics for a cluster."""
+    cluster_id: str
+    cluster_name: str
+    metric_date: datetime
+    cluster_type: ClusterType
+
+    # Capacity metrics
+    worker_count: int
+    potential_dbu_per_hour: float
+
+    # Actual usage metrics
+    actual_dbu: float
+    uptime_hours: float
+
+    # Efficiency metrics (0-100)
+    efficiency_score: float
+
+    # Activity metrics (type-specific)
+    job_run_count: int | None = None
+    unique_users: int | None = None
+
+    # Computed status
+    is_oversized: bool = False
+    is_underutilized: bool = False
+
+
+class OversizedClusterAnalysis(BaseModel):
+    """Analysis of an oversized cluster with recommendations."""
+    cluster_id: str
+    cluster_name: str
+    cluster_type: ClusterType
+    current_workers: int
+    avg_efficiency_score: float
+    avg_daily_dbu: float
+    recommended_workers: int
+    potential_dbu_savings: float
+    potential_cost_savings: float
+
+
+class JobClusterRecommendation(BaseModel):
+    """Recommendation to move jobs to an oversized cluster."""
+    source_cluster_id: str
+    source_cluster_name: str
+    target_cluster_id: str
+    target_cluster_name: str
+    job_count: int
+    reason: str
+    estimated_savings: str
+
+
+class UserConsolidationRecommendation(BaseModel):
+    """Recommendation to consolidate users across clusters."""
+    cluster_ids: list[str]
+    cluster_names: list[str]
+    total_users: int
+    total_current_workers: int
+    recommended_workers: int
+    reason: str
+    estimated_savings: str
+
+
+class ScheduleOptimizationRecommendation(BaseModel):
+    """Recommendation to optimize cluster start/stop times."""
+    cluster_id: str
+    cluster_name: str
+    current_auto_terminate_minutes: int | None
+    recommended_auto_terminate_minutes: int
+    avg_idle_time_per_day_minutes: float
+    peak_usage_hours: list[int] = Field(default_factory=list)
+    reason: str
+
+
+class OptimizationSummary(BaseModel):
+    """Summary of all optimization opportunities."""
+    total_clusters_analyzed: int
+    oversized_clusters: int
+    underutilized_clusters: int
+    total_potential_monthly_savings: float
+    recommendations_count: int
+    last_analysis_time: datetime
+
+
+class MetricsCollectionResponse(BaseModel):
+    """Response from metrics collection endpoint."""
+    success: bool
+    message: str
+    clusters_processed: int
+    metrics_persisted: bool

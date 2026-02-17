@@ -10,8 +10,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib directories (not UI lib)
+/lib/
 lib64/
+!cluster_manager/ui/lib/
 parts/
 sdist/
 var/

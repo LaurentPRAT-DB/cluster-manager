@@ -48,6 +48,24 @@ class AppConfig(BaseSettings):
         description="SQL Warehouse ID for billing queries"
     )
 
+    # Optimization settings
+    metrics_catalog: str = Field(
+        default="main",
+        description="Unity Catalog for metrics storage"
+    )
+    metrics_schema: str = Field(
+        default="cluster_manager",
+        description="Schema for metrics tables"
+    )
+    oversized_threshold: float = Field(
+        default=30.0,
+        description="Efficiency % below which cluster is considered oversized"
+    )
+    underutilized_threshold: float = Field(
+        default=50.0,
+        description="Efficiency % below which cluster is underutilized"
+    )
+
     def __hash__(self) -> int:
         return hash(self.app_name)
 
