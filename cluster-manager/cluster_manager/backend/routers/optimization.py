@@ -85,6 +85,17 @@ def _get_warehouse_id(ws, config) -> str:
     )
 
 
+def _list_clusters_limited(ws, limit: int = 100) -> list:
+    """List clusters with a limit to avoid timeout on large workspaces."""
+    clusters = []
+    for i, cluster in enumerate(ws.clusters.list()):
+        clusters.append(cluster)
+        if i + 1 >= limit:
+            logger.info(f"Reached cluster limit of {limit}")
+            break
+    return clusters
+
+
 def _classify_cluster(cluster) -> ClusterType:
     """Classify cluster type based on source."""
     source = cluster.cluster_source
@@ -164,8 +175,8 @@ def collect_metrics(
         # Ensure table exists
         table_created = _ensure_metrics_table(ws, config)
 
-        # Get all clusters
-        clusters = list(ws.clusters.list())
+        # Get all clusters (limited to avoid timeout)
+        clusters = _list_clusters_limited(ws, limit=200)
         logger.info(f"Processing {len(clusters)} clusters")
 
         # Get yesterday's date
@@ -296,7 +307,7 @@ def get_optimization_summary(
     """Get summary of optimization opportunities across all clusters."""
     logger.info("Getting optimization summary")
 
-    clusters = list(ws.clusters.list())
+    clusters = _list_clusters_limited(ws, limit=100)
 
     oversized_count = 0
     underutilized_count = 0
@@ -352,7 +363,7 @@ def get_oversized_clusters(
     """
     logger.info(f"Getting oversized clusters (min_workers={min_workers})")
 
-    clusters = list(ws.clusters.list())
+    clusters = _list_clusters_limited(ws, limit=100)
     oversized = []
 
     for cluster in clusters:
@@ -407,7 +418,7 @@ def get_job_recommendations(
     """
     logger.info("Getting job cluster recommendations")
 
-    clusters = list(ws.clusters.list())
+    clusters = _list_clusters_limited(ws, limit=100)
     recommendations = []
 
     # Find large interactive clusters (potential targets)
@@ -458,7 +469,7 @@ def get_schedule_recommendations(
     """
     logger.info("Getting schedule optimization recommendations")
 
-    clusters = list(ws.clusters.list())
+    clusters = _list_clusters_limited(ws, limit=100)
     recommendations = []
 
     for cluster in clusters:
