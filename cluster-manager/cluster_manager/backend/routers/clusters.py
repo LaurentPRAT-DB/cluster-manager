@@ -110,6 +110,10 @@ def _cluster_to_detail(cluster: ClusterDetails) -> ClusterDetail:
     """Convert SDK ClusterDetails to our ClusterDetail model."""
     summary = _cluster_to_summary(cluster)
 
+    # Use getattr for optional attributes that may not exist on all cluster types
+    disk_spec = getattr(cluster, 'disk_spec', None)
+    enable_elastic_disk = getattr(cluster, 'enable_elastic_disk', None)
+
     return ClusterDetail(
         **summary.model_dump(),
         terminated_time=_ms_to_datetime(cluster.terminated_time),
@@ -125,8 +129,8 @@ def _cluster_to_detail(cluster: ClusterDetails) -> ClusterDetail:
         init_scripts=[s.as_dict() for s in (cluster.init_scripts or [])],
         cluster_log_conf=cluster.cluster_log_conf.as_dict() if cluster.cluster_log_conf else None,
         policy_id=cluster.policy_id,
-        enable_elastic_disk=cluster.enable_elastic_disk,
-        disk_spec=cluster.disk_spec.as_dict() if cluster.disk_spec else None,
+        enable_elastic_disk=enable_elastic_disk,
+        disk_spec=disk_spec.as_dict() if disk_spec else None,
         single_user_name=cluster.single_user_name,
         data_security_mode=cluster.data_security_mode.value if cluster.data_security_mode else None,
     )
@@ -194,8 +198,14 @@ def get_cluster(
         cluster = ws.clusters.get(cluster_id)
         return _cluster_to_detail(cluster)
     except Exception as e:
-        logger.error(f"Failed to get cluster {cluster_id}: {e}")
-        raise HTTPException(status_code=404, detail=f"Cluster not found: {cluster_id}")
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.error(f"Failed to get cluster {cluster_id}: [{error_type}] {error_msg}")
+        # Return more detailed error to help debug
+        raise HTTPException(
+            status_code=404,
+            detail=f"Cluster not found: {cluster_id}. Error: {error_msg}"
+        )
 
 
 @router.post("/{cluster_id}/start", response_model=ClusterActionResponse)
