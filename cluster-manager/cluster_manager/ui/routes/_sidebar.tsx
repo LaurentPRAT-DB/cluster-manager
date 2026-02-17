@@ -104,7 +104,7 @@ function SidebarLayout() {
         <div className="p-2 border-t border-sidebar-border">
           <div className={cn("flex items-center", collapsed ? "justify-center" : "justify-between")}>
             {!collapsed && (
-              <span className="text-xs text-muted-foreground">v1.4.0</span>
+              <span className="text-xs text-muted-foreground">v1.5.0</span>
             )}
             <ThemeToggle />
           </div>

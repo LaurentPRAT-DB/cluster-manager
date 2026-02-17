@@ -105,6 +105,13 @@ export interface ClusterPolicySummary {
   is_default: boolean;
 }
 
+export interface ClusterPolicyDetail extends ClusterPolicySummary {
+  definition_json: Record<string, unknown>;
+  max_clusters_per_user: number | null;
+  policy_family_id: string | null;
+  policy_family_definition_overrides: string | null;
+}
+
 export interface ClusterActionResponse {
   success: boolean;
   message: string;
@@ -269,6 +276,14 @@ export function usePolicies() {
   return useQuery({
     queryKey: ["policies"],
     queryFn: () => fetchApi<ClusterPolicySummary[]>("/api/policies"),
+  });
+}
+
+export function usePolicy(policyId: string | null) {
+  return useQuery({
+    queryKey: ["policy", policyId],
+    queryFn: () => fetchApi<ClusterPolicyDetail>(`/api/policies/${policyId}`),
+    enabled: !!policyId,
   });
 }
 

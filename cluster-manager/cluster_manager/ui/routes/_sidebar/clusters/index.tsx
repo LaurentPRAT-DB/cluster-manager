@@ -25,9 +25,11 @@ import {
   useClusters,
   useMetricsSummary,
   usePolicies,
+  usePolicy,
   useStartCluster,
   useStopCluster,
 } from "@/lib/api";
+import { PolicyDetailDialog } from "@/components/clusters/policy-detail-dialog";
 import { cn, formatDuration, formatNumber } from "@/lib/utils";
 import { ClusterActionsDropdown } from "@/components/clusters/cluster-actions-dropdown";
 
@@ -215,7 +217,15 @@ function ClusterCard({ cluster }: { cluster: ClusterSummary }) {
   );
 }
 
-function ClusterTableRow({ cluster, policyMap }: { cluster: ClusterSummary; policyMap: Map<string, string> }) {
+function ClusterTableRow({
+  cluster,
+  policyMap,
+  onPolicyClick,
+}: {
+  cluster: ClusterSummary;
+  policyMap: Map<string, string>;
+  onPolicyClick: (policyId: string) => void;
+}) {
   const startCluster = useStartCluster();
   const stopCluster = useStopCluster();
 
@@ -274,12 +284,16 @@ function ClusterTableRow({ cluster, policyMap }: { cluster: ClusterSummary; poli
       </td>
       <td className="py-3 px-4 text-sm truncate max-w-[150px]">
         {cluster.policy_id ? (
-          <Link
-            to="/policies"
-            className="text-muted-foreground hover:text-primary hover:underline"
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onPolicyClick(cluster.policy_id!);
+            }}
+            className="text-muted-foreground hover:text-primary hover:underline text-left"
           >
             {policyMap.get(cluster.policy_id) || "-"}
-          </Link>
+          </button>
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
@@ -407,7 +421,15 @@ const stateOrder: Record<string, number> = {
   UNKNOWN: 7,
 };
 
-function ClusterTable({ clusters, policyMap }: { clusters: ClusterSummary[]; policyMap: Map<string, string> }) {
+function ClusterTable({
+  clusters,
+  policyMap,
+  onPolicyClick,
+}: {
+  clusters: ClusterSummary[];
+  policyMap: Map<string, string>;
+  onPolicyClick: (policyId: string) => void;
+}) {
   const [sort, setSort] = useState<SortState>({ column: "state", direction: "asc" });
 
   const handleSort = (column: SortColumn) => {
@@ -475,7 +497,12 @@ function ClusterTable({ clusters, policyMap }: { clusters: ClusterSummary[]; pol
           </thead>
           <tbody>
             {sortedClusters.map((cluster) => (
-              <ClusterTableRow key={cluster.cluster_id} cluster={cluster} policyMap={policyMap} />
+              <ClusterTableRow
+                key={cluster.cluster_id}
+                cluster={cluster}
+                policyMap={policyMap}
+                onPolicyClick={onPolicyClick}
+              />
             ))}
           </tbody>
         </table>
@@ -488,11 +515,13 @@ type ViewMode = "grid" | "list";
 
 function ClustersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
   const { policy: policyFilter } = Route.useSearch();
   const navigate = useNavigate();
   const { data: clusters, isLoading, error, refetch } = useClusters();
   const { data: metrics } = useMetricsSummary();
   const { data: policies } = usePolicies();
+  const { data: selectedPolicy, isLoading: isPolicyLoading } = usePolicy(selectedPolicyId);
 
   // Create policy map for displaying policy names
   const policyMap = useMemo(() => {
@@ -634,7 +663,11 @@ function ClustersPage() {
         </div>
       ) : filteredClusters.length > 0 ? (
         viewMode === "list" ? (
-          <ClusterTable clusters={filteredClusters} policyMap={policyMap} />
+          <ClusterTable
+            clusters={filteredClusters}
+            policyMap={policyMap}
+            onPolicyClick={(policyId) => setSelectedPolicyId(policyId)}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredClusters.map((cluster) => (
@@ -666,6 +699,14 @@ function ClustersPage() {
           </p>
         </div>
       )}
+
+      {/* Policy Detail Dialog */}
+      <PolicyDetailDialog
+        policy={selectedPolicy}
+        isLoading={isPolicyLoading}
+        isOpen={selectedPolicyId !== null}
+        onClose={() => setSelectedPolicyId(null)}
+      />
     </div>
   );
 }
