@@ -388,3 +388,203 @@ export function useUtilizationTrends(days = 30, movingAvgWindow = 7) {
     refetchInterval: 120000, // Refresh every 2 minutes
   });
 }
+
+// Spark Configuration types
+export type SparkConfigImpact = "performance" | "cost" | "reliability" | "memory";
+export type SparkConfigSeverity = "high" | "medium" | "low";
+
+export interface SparkConfigRecommendation {
+  cluster_id: string;
+  cluster_name: string;
+  setting: string;
+  current_value: string | null;
+  recommended_value: string;
+  impact: SparkConfigImpact;
+  severity: SparkConfigSeverity;
+  reason: string;
+  documentation_link: string | null;
+}
+
+export interface ClusterSparkConfigAnalysis {
+  cluster_id: string;
+  cluster_name: string;
+  spark_version: string | null;
+  is_photon_enabled: boolean;
+  aqe_enabled: boolean | null;
+  total_issues: number;
+  recommendations: SparkConfigRecommendation[];
+}
+
+export function useSparkConfigRecommendations(includeNoIssues = false) {
+  return useQuery({
+    queryKey: ["spark-config-recommendations", includeNoIssues],
+    queryFn: () =>
+      fetchApi<ClusterSparkConfigAnalysis[]>(
+        `/api/optimization/spark-config-recommendations?include_no_issues=${includeNoIssues}`
+      ),
+    refetchInterval: 60000,
+  });
+}
+
+// Cost Optimization types
+export type CostOptimizationCategory = "spot_instances" | "node_type" | "storage" | "autoscaling" | "serverless";
+export type CostRecommendationSeverity = "high" | "medium" | "low";
+
+export interface CostOptimizationRecommendation {
+  cluster_id: string;
+  cluster_name: string;
+  category: CostOptimizationCategory;
+  current_state: string;
+  recommendation: string;
+  estimated_savings_percent: number;
+  severity: CostRecommendationSeverity;
+  reason: string;
+  implementation_steps: string[];
+}
+
+export interface ClusterCostAnalysis {
+  cluster_id: string;
+  cluster_name: string;
+  cloud_provider: string;
+  node_type_id: string | null;
+  driver_node_type_id: string | null;
+  num_workers: number;
+  uses_spot_instances: boolean;
+  spot_bid_price: number | null;
+  first_on_demand: number | null;
+  availability_zone: string | null;
+  ebs_volume_type: string | null;
+  total_recommendations: number;
+  total_potential_savings_percent: number;
+  recommendations: CostOptimizationRecommendation[];
+}
+
+export function useCostRecommendations(includeNoIssues = false) {
+  return useQuery({
+    queryKey: ["cost-recommendations", includeNoIssues],
+    queryFn: () =>
+      fetchApi<ClusterCostAnalysis[]>(
+        `/api/optimization/cost-recommendations?include_no_issues=${includeNoIssues}`
+      ),
+    refetchInterval: 60000,
+  });
+}
+
+// Autoscaling Optimization types
+export type AutoscalingIssueType =
+  | "wide_range"
+  | "narrow_range"
+  | "high_minimum"
+  | "no_autoscaling"
+  | "inefficient_range";
+export type AutoscalingSeverity = "high" | "medium" | "low";
+
+export interface AutoscalingRecommendation {
+  cluster_id: string;
+  cluster_name: string;
+  issue_type: AutoscalingIssueType;
+  current_config: string;
+  recommendation: string;
+  estimated_savings_percent: number;
+  severity: AutoscalingSeverity;
+  reason: string;
+  implementation_steps: string[];
+}
+
+export interface ClusterAutoscalingAnalysis {
+  cluster_id: string;
+  cluster_name: string;
+  cluster_type: string;
+  has_autoscaling: boolean;
+  min_workers: number | null;
+  max_workers: number | null;
+  current_workers: number;
+  autoscale_range: number | null;
+  range_ratio: number | null;
+  auto_terminate_minutes: number | null;
+  total_issues: number;
+  total_potential_savings_percent: number;
+  recommendations: AutoscalingRecommendation[];
+}
+
+export function useAutoscalingRecommendations(includeNoIssues = false) {
+  return useQuery({
+    queryKey: ["autoscaling-recommendations", includeNoIssues],
+    queryFn: () =>
+      fetchApi<ClusterAutoscalingAnalysis[]>(
+        `/api/optimization/autoscaling-recommendations?include_no_issues=${includeNoIssues}`
+      ),
+    refetchInterval: 60000,
+  });
+}
+
+// Node Type Right-Sizing types
+export type NodeTypeCategory =
+  | "memory_optimized"
+  | "compute_optimized"
+  | "general_purpose"
+  | "gpu"
+  | "storage_optimized"
+  | "unknown";
+
+export type NodeTypeIssueType =
+  | "oversized_driver"
+  | "undersized_driver"
+  | "wrong_category"
+  | "overprovisioned"
+  | "mismatched_driver_worker"
+  | "gpu_underutilized"
+  | "legacy_instance";
+
+export type NodeTypeSeverity = "high" | "medium" | "low";
+
+export interface NodeTypeRecommendation {
+  cluster_id: string;
+  cluster_name: string;
+  issue_type: NodeTypeIssueType;
+  current_config: string;
+  recommended_config: string;
+  estimated_savings_percent: number;
+  severity: NodeTypeSeverity;
+  reason: string;
+  implementation_steps: string[];
+}
+
+export interface NodeTypeSpec {
+  instance_type: string;
+  category: NodeTypeCategory;
+  vcpus: number | null;
+  memory_gb: number | null;
+  gpu_count: number | null;
+  generation: string | null;
+  size: string | null;
+}
+
+export interface ClusterNodeTypeAnalysis {
+  cluster_id: string;
+  cluster_name: string;
+  cluster_type: string;
+  cloud_provider: string;
+  worker_node_type: string | null;
+  worker_node_category: NodeTypeCategory;
+  worker_spec: NodeTypeSpec | null;
+  driver_node_type: string | null;
+  driver_node_category: NodeTypeCategory;
+  driver_spec: NodeTypeSpec | null;
+  num_workers: number;
+  uses_same_driver_worker: boolean;
+  total_issues: number;
+  total_potential_savings_percent: number;
+  recommendations: NodeTypeRecommendation[];
+}
+
+export function useNodeTypeRecommendations(includeNoIssues = false) {
+  return useQuery({
+    queryKey: ["node-type-recommendations", includeNoIssues],
+    queryFn: () =>
+      fetchApi<ClusterNodeTypeAnalysis[]>(
+        `/api/optimization/node-type-recommendations?include_no_issues=${includeNoIssues}`
+      ),
+    refetchInterval: 60000,
+  });
+}

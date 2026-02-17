@@ -310,3 +310,218 @@ class MetricsCollectionResponse(BaseModel):
     message: str
     clusters_processed: int
     metrics_persisted: bool
+
+
+# --- Spark Configuration Optimization Models ---
+
+
+class SparkConfigImpact(str, Enum):
+    """Impact category for Spark configuration recommendations."""
+    PERFORMANCE = "performance"
+    COST = "cost"
+    RELIABILITY = "reliability"
+    MEMORY = "memory"
+
+
+class SparkConfigSeverity(str, Enum):
+    """Severity level for configuration issues."""
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class SparkConfigRecommendation(BaseModel):
+    """Recommendation for Spark configuration optimization."""
+    cluster_id: str
+    cluster_name: str
+    setting: str
+    current_value: str | None
+    recommended_value: str
+    impact: SparkConfigImpact
+    severity: SparkConfigSeverity
+    reason: str
+    documentation_link: str | None = None
+
+
+class ClusterSparkConfigAnalysis(BaseModel):
+    """Full Spark configuration analysis for a cluster."""
+    cluster_id: str
+    cluster_name: str
+    spark_version: str | None
+    is_photon_enabled: bool
+    aqe_enabled: bool | None
+    total_issues: int
+    recommendations: list[SparkConfigRecommendation]
+
+
+# --- Cost Optimization Models ---
+
+
+class CostOptimizationCategory(str, Enum):
+    """Category of cost optimization recommendation."""
+    SPOT_INSTANCES = "spot_instances"
+    NODE_TYPE = "node_type"
+    STORAGE = "storage"
+    AUTOSCALING = "autoscaling"
+    SERVERLESS = "serverless"
+
+
+class CostRecommendationSeverity(str, Enum):
+    """Severity/impact level for cost recommendations."""
+    HIGH = "high"      # >30% potential savings
+    MEDIUM = "medium"  # 10-30% potential savings
+    LOW = "low"        # <10% potential savings
+
+
+class CostOptimizationRecommendation(BaseModel):
+    """Individual cost optimization recommendation."""
+    cluster_id: str
+    cluster_name: str
+    category: CostOptimizationCategory
+    current_state: str
+    recommendation: str
+    estimated_savings_percent: float
+    severity: CostRecommendationSeverity
+    reason: str
+    implementation_steps: list[str] = []
+
+
+class ClusterCostAnalysis(BaseModel):
+    """Full cost optimization analysis for a cluster."""
+    cluster_id: str
+    cluster_name: str
+    cloud_provider: str  # aws, azure, gcp
+    node_type_id: str | None
+    driver_node_type_id: str | None
+    num_workers: int
+    uses_spot_instances: bool
+    spot_bid_price: float | None
+    first_on_demand: int | None
+    availability_zone: str | None
+    ebs_volume_type: str | None
+    total_recommendations: int
+    total_potential_savings_percent: float
+    recommendations: list[CostOptimizationRecommendation]
+
+
+# --- Autoscaling Optimization Models ---
+
+
+class AutoscalingIssueType(str, Enum):
+    """Type of autoscaling configuration issue."""
+    WIDE_RANGE = "wide_range"           # max >> min, suggests uncertainty
+    NARROW_RANGE = "narrow_range"       # max ≈ min, consider fixed size
+    HIGH_MINIMUM = "high_minimum"       # min_workers too high for idle periods
+    NO_AUTOSCALING = "no_autoscaling"   # Fixed size could benefit from autoscaling
+    INEFFICIENT_RANGE = "inefficient_range"  # Range doesn't match usage patterns
+
+
+class AutoscalingSeverity(str, Enum):
+    """Severity level for autoscaling issues."""
+    HIGH = "high"      # >40% potential savings
+    MEDIUM = "medium"  # 15-40% potential savings
+    LOW = "low"        # <15% potential savings
+
+
+class AutoscalingRecommendation(BaseModel):
+    """Individual autoscaling optimization recommendation."""
+    cluster_id: str
+    cluster_name: str
+    issue_type: AutoscalingIssueType
+    current_config: str
+    recommendation: str
+    estimated_savings_percent: float
+    severity: AutoscalingSeverity
+    reason: str
+    implementation_steps: list[str] = []
+
+
+class ClusterAutoscalingAnalysis(BaseModel):
+    """Full autoscaling analysis for a cluster."""
+    cluster_id: str
+    cluster_name: str
+    cluster_type: ClusterType
+    has_autoscaling: bool
+    min_workers: int | None
+    max_workers: int | None
+    current_workers: int
+    autoscale_range: int | None          # max - min
+    range_ratio: float | None            # max / min
+    auto_terminate_minutes: int | None
+    total_issues: int
+    total_potential_savings_percent: float
+    recommendations: list[AutoscalingRecommendation]
+
+
+# --- Node Type Right-Sizing Models ---
+
+
+class NodeTypeCategory(str, Enum):
+    """Category of node type based on resource profile."""
+    MEMORY_OPTIMIZED = "memory_optimized"     # r5, r6i, E-series
+    COMPUTE_OPTIMIZED = "compute_optimized"   # c5, c6i, F-series
+    GENERAL_PURPOSE = "general_purpose"       # m5, m6i, D-series
+    GPU = "gpu"                               # p3, p4, g4, NC-series
+    STORAGE_OPTIMIZED = "storage_optimized"   # i3, d2, L-series
+    UNKNOWN = "unknown"
+
+
+class NodeTypeIssueType(str, Enum):
+    """Type of node type configuration issue."""
+    OVERSIZED_DRIVER = "oversized_driver"           # Driver larger than workers
+    UNDERSIZED_DRIVER = "undersized_driver"         # Driver smaller than needed
+    WRONG_CATEGORY = "wrong_category"               # Wrong instance family for workload
+    OVERPROVISIONED = "overprovisioned"             # Instance too large for workload
+    MISMATCHED_DRIVER_WORKER = "mismatched_driver_worker"  # Different families
+    GPU_UNDERUTILIZED = "gpu_underutilized"         # GPU for non-ML workload
+    LEGACY_INSTANCE = "legacy_instance"             # Old generation instance
+
+
+class NodeTypeSeverity(str, Enum):
+    """Severity level for node type issues."""
+    HIGH = "high"      # >30% potential savings or performance impact
+    MEDIUM = "medium"  # 15-30% potential savings
+    LOW = "low"        # <15% potential savings
+
+
+class NodeTypeRecommendation(BaseModel):
+    """Individual node type optimization recommendation."""
+    cluster_id: str
+    cluster_name: str
+    issue_type: NodeTypeIssueType
+    current_config: str
+    recommended_config: str
+    estimated_savings_percent: float
+    severity: NodeTypeSeverity
+    reason: str
+    implementation_steps: list[str] = []
+
+
+class NodeTypeSpec(BaseModel):
+    """Parsed node type specification."""
+    instance_type: str
+    category: NodeTypeCategory
+    vcpus: int | None = None
+    memory_gb: float | None = None
+    gpu_count: int | None = None
+    generation: str | None = None  # e.g., "5", "6", "6i"
+    size: str | None = None        # e.g., "xlarge", "2xlarge"
+
+
+class ClusterNodeTypeAnalysis(BaseModel):
+    """Full node type analysis for a cluster."""
+    cluster_id: str
+    cluster_name: str
+    cluster_type: ClusterType
+    cloud_provider: str
+    worker_node_type: str | None
+    worker_node_category: NodeTypeCategory
+    worker_spec: NodeTypeSpec | None
+    driver_node_type: str | None
+    driver_node_category: NodeTypeCategory
+    driver_spec: NodeTypeSpec | None
+    num_workers: int
+    uses_same_driver_worker: bool
+    total_issues: int
+    total_potential_savings_percent: float
+    recommendations: list[NodeTypeRecommendation]
