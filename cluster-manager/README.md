@@ -67,6 +67,8 @@ Estimated wasted DBUs: 52.3 (~$7.85)"
 | Wide autoscale range (>20 workers) | Consider tighter bounds | Low |
 | Old Databricks Runtime (<13.x) | Upgrade for 20%+ performance gains | Low |
 
+> **Deep Dive**: See [Optimization Strategies](docs/OPTIMIZATION_STRATEGIES.md) for all 42+ optimization checks across 12 categories, with detailed savings estimates for administrators and cost controllers.
+
 ### 4. Safe Cluster Operations
 
 **Problem**: Administrative accidents (wrong cluster terminated) cause production outages.
@@ -238,6 +240,16 @@ Future enhancements for administrators:
 - [ ] **Auto-stop policies**: Automatically stop idle clusters
 - [ ] **Tag-based cost allocation**: Group costs by team/project tags
 - [ ] **Comparison views**: Month-over-month cost trends
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Optimization Strategies](docs/OPTIMIZATION_STRATEGIES.md) | Complete guide to all 42+ cost optimization checks with savings estimates |
+| [Databricks Cost Management](https://docs.databricks.com/administration-guide/account-settings/billable-usage.html) | Official Databricks billing documentation |
+| [Cluster Best Practices](https://docs.databricks.com/clusters/cluster-config-best-practices.html) | Databricks cluster configuration guide |
 
 ---
 
