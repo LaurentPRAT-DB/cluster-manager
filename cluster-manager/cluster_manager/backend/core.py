@@ -54,7 +54,7 @@ class AppConfig(BaseSettings):
         description="Unity Catalog for metrics storage"
     )
     metrics_schema: str = Field(
-        default="cluster_manager",
+        default="cluster_manager_app",
         description="Schema for metrics tables"
     )
     oversized_threshold: float = Field(
