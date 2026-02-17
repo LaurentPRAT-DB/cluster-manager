@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { usePolicies } from "@/lib/api";
-import { cn, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 
 function PoliciesPage() {
   const { data: policies, isLoading, error, refetch } = usePolicies();

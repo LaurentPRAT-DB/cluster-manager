@@ -10,5 +10,5 @@ app_slug = "cluster_manager"
 api_prefix = "/api"
 
 # Paths
-project_root = Path(__file__).parent.parent.parent
-dist_dir = project_root / "src" / app_slug / "__dist__"
+project_root = Path(__file__).parent.parent
+dist_dir = project_root / app_slug / "__dist__"

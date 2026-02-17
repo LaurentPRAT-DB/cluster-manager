@@ -32,7 +32,7 @@ yarn-error.log*
 bun.lockb
 
 # Build outputs
-__dist__/
+# __dist__/ is needed for deployment - not ignored
 *.local
 
 # IDE

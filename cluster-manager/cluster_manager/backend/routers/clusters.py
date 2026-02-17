@@ -100,7 +100,7 @@ def _cluster_to_summary(cluster: ClusterDetails) -> ClusterSummary:
         spark_version=cluster.spark_version,
         cluster_source=_source_to_enum(cluster.cluster_source.value if cluster.cluster_source else None),
         start_time=_ms_to_datetime(cluster.start_time),
-        last_activity_time=_ms_to_datetime(cluster.last_activity_time),
+        last_activity_time=_ms_to_datetime(getattr(cluster, 'last_activity_time', None)),
         uptime_minutes=_calculate_uptime_minutes(cluster),
         estimated_dbu_per_hour=_estimate_dbu_per_hour(cluster),
     )
@@ -136,35 +136,50 @@ def _cluster_to_detail(cluster: ClusterDetails) -> ClusterDetail:
 def list_clusters(
     ws: Dependency.Client,
     state: Annotated[ClusterState | None, Query(description="Filter by cluster state")] = None,
+    limit: Annotated[int, Query(ge=1, le=500, description="Maximum number of clusters to return")] = 100,
 ) -> list[ClusterSummary]:
-    """List all clusters in the workspace.
+    """List clusters in the workspace.
 
     Returns a summary of each cluster including state, configuration, and estimated DBU usage.
+    Limited to first N clusters for performance (default 100).
     """
-    logger.info("Listing clusters")
+    logger.info(f"Listing clusters - limit: {limit}")
 
-    clusters = list(ws.clusters.list())
-    summaries = [_cluster_to_summary(c) for c in clusters]
+    try:
+        # Iterate over clusters with limit for performance
+        clusters = []
+        for i, cluster in enumerate(ws.clusters.list()):
+            clusters.append(cluster)
+            if i + 1 >= limit:
+                logger.info(f"Reached limit of {limit} clusters")
+                break
 
-    # Filter by state if provided
-    if state:
-        summaries = [s for s in summaries if s.state == state]
+        logger.info(f"Retrieved {len(clusters)} clusters")
+        summaries = [_cluster_to_summary(c) for c in clusters]
 
-    # Sort by state (running first) then by name
-    state_order = {
-        ClusterState.RUNNING: 0,
-        ClusterState.PENDING: 1,
-        ClusterState.RESTARTING: 2,
-        ClusterState.RESIZING: 3,
-        ClusterState.TERMINATING: 4,
-        ClusterState.TERMINATED: 5,
-        ClusterState.ERROR: 6,
-        ClusterState.UNKNOWN: 7,
-    }
-    summaries.sort(key=lambda s: (state_order.get(s.state, 99), s.cluster_name))
+        # Filter by state if provided
+        if state:
+            summaries = [s for s in summaries if s.state == state]
 
-    logger.info(f"Found {len(summaries)} clusters")
-    return summaries
+        # Sort by state (running first) then by name
+        state_order = {
+            ClusterState.RUNNING: 0,
+            ClusterState.PENDING: 1,
+            ClusterState.RESTARTING: 2,
+            ClusterState.RESIZING: 3,
+            ClusterState.TERMINATING: 4,
+            ClusterState.TERMINATED: 5,
+            ClusterState.ERROR: 6,
+            ClusterState.UNKNOWN: 7,
+        }
+        summaries.sort(key=lambda s: (state_order.get(s.state, 99), s.cluster_name))
+
+        logger.info(f"Returning {len(summaries)} clusters")
+        return summaries
+    except Exception as e:
+        error_msg = f"Failed to list clusters: {e}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.get("/{cluster_id}", response_model=ClusterDetail)

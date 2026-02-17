@@ -15,25 +15,29 @@ from databricks.sdk import WorkspaceClient
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .._metadata import api_prefix, app_name, app_slug
+from .._metadata import api_prefix, app_name, app_slug, dist_dir
 
 # --- Config ---
 
-project_root = Path(__file__).parent.parent.parent.parent
+project_root = Path(__file__).parent.parent.parent
 env_file = project_root / ".env"
 
-if env_file.exists():
-    load_dotenv(dotenv_path=env_file)
+# Load .env file if it exists
+try:
+    if env_file.exists():
+        load_dotenv(dotenv_path=env_file)
+except Exception:
+    pass  # Ignore .env errors in production
 
 
 class AppConfig(BaseSettings):
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
-        env_file=env_file,
         env_prefix=f"{app_slug.upper()}_",
         extra="ignore",
         env_nested_delimiter="__",
@@ -50,8 +54,24 @@ class AppConfig(BaseSettings):
 
 # --- Logger ---
 
+# Configure logging for both local and remote debugging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(),  # Console output
+    ]
+)
 logger = logging.getLogger(app_name)
-logging.basicConfig(level=logging.INFO)
+logger.setLevel(logging.DEBUG)
+
+# Log startup info
+try:
+    logger.info(f"Initializing {app_name} backend")
+    logger.info(f"Project root: {project_root}")
+    logger.info(f"Environment file exists: {env_file.exists()}")
+except Exception as e:
+    logger.warning(f"Startup logging failed: {e}")
 
 
 # --- Utils ---
@@ -131,6 +151,20 @@ def create_app(
 
     _add_exception_handler(app)
 
+    # Serve frontend static files if dist directory exists
+    if dist_dir.exists():
+        # Serve static assets
+        app.mount("/assets", StaticFiles(directory=dist_dir / "assets"), name="assets")
+
+        # Serve index.html for all non-API routes (SPA routing)
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            # Don't intercept API routes
+            if full_path.startswith("api/"):
+                return JSONResponse({"detail": "Not Found"}, status_code=404)
+            # Serve index.html for SPA routing
+            return FileResponse(dist_dir / "index.html")
+
     return app
 
 
@@ -169,23 +203,30 @@ def get_ws(request: Request) -> WorkspaceClient:
 
 
 def get_user_ws(
+    request: Request,
     token: Annotated[str | None, Header(alias="X-Forwarded-Access-Token")] = None,
 ) -> WorkspaceClient:
     """
     Returns a Databricks Workspace client with authentication on behalf of user.
     If the request contains an X-Forwarded-Access-Token header, OBO auth is used.
+    Falls back to service principal client if OBO token is not available.
 
     Example usage: `user_ws: Dependency.UserClient`
     """
+    if token:
+        logger.debug("Using OBO token for user authentication")
+        return WorkspaceClient(
+            token=token, auth_type="pat"
+        )  # set pat explicitly to avoid issues with SP client
 
-    if not token:
-        raise ValueError(
-            "OBO token is not provided in the header X-Forwarded-Access-Token"
+    # Fall back to service principal client
+    logger.debug("OBO token not available, using service principal client")
+    if not hasattr(request.app.state, "workspace_client"):
+        raise RuntimeError(
+            "WorkspaceClient not initialized. "
+            "Ensure app.state.workspace_client is set during application lifespan startup."
         )
-
-    return WorkspaceClient(
-        token=token, auth_type="pat"
-    )  # set pat explicitly to avoid issues with SP client
+    return request.app.state.workspace_client
 
 
 class Dependency:

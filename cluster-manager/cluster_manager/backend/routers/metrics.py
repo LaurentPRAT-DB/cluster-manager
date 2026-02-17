@@ -104,7 +104,7 @@ def get_idle_clusters(ws: Dependency.Client) -> list[IdleClusterAlert]:
             continue
 
         # Check last activity time
-        last_activity = _ms_to_datetime(cluster.last_activity_time)
+        last_activity = _ms_to_datetime(getattr(cluster, 'last_activity_time', None))
         if last_activity is None:
             # Use start time if no activity recorded
             last_activity = _ms_to_datetime(cluster.start_time)

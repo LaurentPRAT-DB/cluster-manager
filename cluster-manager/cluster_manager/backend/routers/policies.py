@@ -143,7 +143,7 @@ def get_policy_usage(policy_id: str, ws: Dependency.Client) -> PolicyUsage:
                 spark_version=cluster.spark_version,
                 cluster_source=source,
                 start_time=_ms_to_datetime(cluster.start_time),
-                last_activity_time=_ms_to_datetime(cluster.last_activity_time),
+                last_activity_time=_ms_to_datetime(getattr(cluster, 'last_activity_time', None)),
             ))
 
         return PolicyUsage(

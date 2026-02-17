@@ -14,7 +14,6 @@ import {
   Square,
   Tag,
   Users,
-  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 

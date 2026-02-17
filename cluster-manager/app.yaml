@@ -2,10 +2,17 @@ command:
   - uvicorn
   - cluster_manager.backend.app:app
   - --host
-  - "0.0.0.0"
+  - 0.0.0.0
   - --port
   - "8000"
 
 env:
   - name: CLUSTER_MANAGER_APP_NAME
     value: "Cluster Manager"
+
+# Request additional OAuth scopes for the user token
+user_api_scopes:
+  - compute.clusters:read
+  - compute.clusters:manage
+  - compute.cluster-policies:read
+  - sql.statement-execution:execute

@@ -5,7 +5,6 @@ from typing import Annotated
 
 from databricks.sdk.service.sql import (
     Disposition,
-    ExecuteStatementRequest,
     Format,
     StatementState,
 )
