@@ -1138,6 +1138,55 @@ function SparkConfigListRow({ cluster }: { cluster: ClusterSparkConfigAnalysis }
 type SortField = "cluster_name" | "cluster_type" | "current_workers" | "avg_efficiency_score" | "recommended_workers" | "potential_cost_savings";
 type SortDirection = "asc" | "desc";
 
+// Sort field types for each tab
+type SparkConfigSortField = "cluster_name" | "is_photon_enabled" | "aqe_enabled" | "spark_version" | "total_issues";
+type CostSortField = "cluster_name" | "cloud_provider" | "uses_spot_instances" | "node_type_id" | "num_workers" | "total_recommendations" | "total_potential_savings_percent";
+type AutoscalingSortField = "cluster_name" | "cluster_type" | "has_autoscaling" | "current_workers" | "auto_terminate_minutes" | "total_issues" | "total_potential_savings_percent";
+type NodeTypeSortField = "cluster_name" | "cluster_type" | "cloud_provider" | "worker_node_category" | "worker_node_type" | "total_issues" | "total_potential_savings_percent";
+type JobsSortField = "source_cluster_name" | "target_cluster_name" | "job_count" | "estimated_savings";
+type ScheduleSortField = "cluster_name" | "current_auto_terminate_minutes" | "recommended_auto_terminate_minutes" | "avg_idle_time_per_day_minutes";
+
+// Generic sortable header component
+function GenericSortableHeader<T extends string>({
+  label,
+  field,
+  currentSort,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  field: T;
+  currentSort: { field: T; direction: SortDirection };
+  onSort: (field: T) => void;
+  align?: "left" | "center" | "right";
+}) {
+  const isActive = currentSort.field === field;
+  const textAlign = align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left";
+
+  return (
+    <th
+      className={cn(
+        "py-3 px-4 font-medium text-sm cursor-pointer hover:bg-muted/70 transition-colors select-none",
+        textAlign
+      )}
+      onClick={() => onSort(field)}
+    >
+      <div className={cn("flex items-center gap-1", align === "center" && "justify-center", align === "right" && "justify-end")}>
+        {label}
+        {isActive ? (
+          currentSort.direction === "asc" ? (
+            <ChevronUp size={14} className="text-primary" />
+          ) : (
+            <ChevronDown size={14} className="text-primary" />
+          )
+        ) : (
+          <ArrowUpDown size={14} className="text-muted-foreground opacity-50" />
+        )}
+      </div>
+    </th>
+  );
+}
+
 function SortableHeader({
   label,
   field,
@@ -1207,6 +1256,32 @@ function OptimizationPage() {
   const [jobsView, setJobsView] = useState<ViewMode>("cards");
   const [scheduleView, setScheduleView] = useState<ViewMode>("cards");
 
+  // Sort states for each list view
+  const [sparkConfigSort, setSparkConfigSort] = useState<{ field: SparkConfigSortField; direction: SortDirection }>({
+    field: "total_issues",
+    direction: "desc",
+  });
+  const [costSort, setCostSort] = useState<{ field: CostSortField; direction: SortDirection }>({
+    field: "total_potential_savings_percent",
+    direction: "desc",
+  });
+  const [autoscalingSort, setAutoscalingSort] = useState<{ field: AutoscalingSortField; direction: SortDirection }>({
+    field: "total_potential_savings_percent",
+    direction: "desc",
+  });
+  const [nodeTypeSort, setNodeTypeSort] = useState<{ field: NodeTypeSortField; direction: SortDirection }>({
+    field: "total_potential_savings_percent",
+    direction: "desc",
+  });
+  const [jobsSort, setJobsSort] = useState<{ field: JobsSortField; direction: SortDirection }>({
+    field: "job_count",
+    direction: "desc",
+  });
+  const [scheduleSort, setScheduleSort] = useState<{ field: ScheduleSortField; direction: SortDirection }>({
+    field: "avg_idle_time_per_day_minutes",
+    direction: "desc",
+  });
+
   const handleOversizedSort = (field: SortField) => {
     setOversizedSort((prev) => ({
       field,
@@ -1245,6 +1320,223 @@ function OptimizationPage() {
       return direction === "asc" ? comparison : -comparison;
     });
   }, [oversizedClusters, oversizedSort]);
+
+  // Sort handlers for each tab
+  const handleSparkConfigSort = (field: SparkConfigSortField) => {
+    setSparkConfigSort((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const handleCostSort = (field: CostSortField) => {
+    setCostSort((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const handleAutoscalingSort = (field: AutoscalingSortField) => {
+    setAutoscalingSort((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const handleNodeTypeSort = (field: NodeTypeSortField) => {
+    setNodeTypeSort((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const handleJobsSort = (field: JobsSortField) => {
+    setJobsSort((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const handleScheduleSort = (field: ScheduleSortField) => {
+    setScheduleSort((prev) => ({
+      field,
+      direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  // Sorted data for Spark Config
+  const sortedSparkConfigData = useMemo(() => {
+    if (!sparkConfigData) return [];
+    return [...sparkConfigData].sort((a, b) => {
+      const { field, direction } = sparkConfigSort;
+      let comparison = 0;
+      switch (field) {
+        case "cluster_name":
+          comparison = a.cluster_name.localeCompare(b.cluster_name);
+          break;
+        case "is_photon_enabled":
+          comparison = (a.is_photon_enabled ? 1 : 0) - (b.is_photon_enabled ? 1 : 0);
+          break;
+        case "aqe_enabled":
+          comparison = (a.aqe_enabled === null ? 0 : a.aqe_enabled ? 1 : -1) - (b.aqe_enabled === null ? 0 : b.aqe_enabled ? 1 : -1);
+          break;
+        case "spark_version":
+          comparison = (a.spark_version || "").localeCompare(b.spark_version || "");
+          break;
+        case "total_issues":
+          comparison = a.total_issues - b.total_issues;
+          break;
+      }
+      return direction === "asc" ? comparison : -comparison;
+    });
+  }, [sparkConfigData, sparkConfigSort]);
+
+  // Sorted data for Cost
+  const sortedCostData = useMemo(() => {
+    if (!costData) return [];
+    return [...costData].sort((a, b) => {
+      const { field, direction } = costSort;
+      let comparison = 0;
+      switch (field) {
+        case "cluster_name":
+          comparison = a.cluster_name.localeCompare(b.cluster_name);
+          break;
+        case "cloud_provider":
+          comparison = a.cloud_provider.localeCompare(b.cloud_provider);
+          break;
+        case "uses_spot_instances":
+          comparison = (a.uses_spot_instances ? 1 : 0) - (b.uses_spot_instances ? 1 : 0);
+          break;
+        case "node_type_id":
+          comparison = (a.node_type_id || "").localeCompare(b.node_type_id || "");
+          break;
+        case "num_workers":
+          comparison = a.num_workers - b.num_workers;
+          break;
+        case "total_recommendations":
+          comparison = a.total_recommendations - b.total_recommendations;
+          break;
+        case "total_potential_savings_percent":
+          comparison = a.total_potential_savings_percent - b.total_potential_savings_percent;
+          break;
+      }
+      return direction === "asc" ? comparison : -comparison;
+    });
+  }, [costData, costSort]);
+
+  // Sorted data for Autoscaling
+  const sortedAutoscalingData = useMemo(() => {
+    if (!autoscalingData) return [];
+    return [...autoscalingData].sort((a, b) => {
+      const { field, direction } = autoscalingSort;
+      let comparison = 0;
+      switch (field) {
+        case "cluster_name":
+          comparison = a.cluster_name.localeCompare(b.cluster_name);
+          break;
+        case "cluster_type":
+          comparison = a.cluster_type.localeCompare(b.cluster_type);
+          break;
+        case "has_autoscaling":
+          comparison = (a.has_autoscaling ? 1 : 0) - (b.has_autoscaling ? 1 : 0);
+          break;
+        case "current_workers":
+          comparison = a.current_workers - b.current_workers;
+          break;
+        case "auto_terminate_minutes":
+          comparison = (a.auto_terminate_minutes || 0) - (b.auto_terminate_minutes || 0);
+          break;
+        case "total_issues":
+          comparison = a.total_issues - b.total_issues;
+          break;
+        case "total_potential_savings_percent":
+          comparison = a.total_potential_savings_percent - b.total_potential_savings_percent;
+          break;
+      }
+      return direction === "asc" ? comparison : -comparison;
+    });
+  }, [autoscalingData, autoscalingSort]);
+
+  // Sorted data for Node Type
+  const sortedNodeTypeData = useMemo(() => {
+    if (!nodeTypeData) return [];
+    return [...nodeTypeData].sort((a, b) => {
+      const { field, direction } = nodeTypeSort;
+      let comparison = 0;
+      switch (field) {
+        case "cluster_name":
+          comparison = a.cluster_name.localeCompare(b.cluster_name);
+          break;
+        case "cluster_type":
+          comparison = a.cluster_type.localeCompare(b.cluster_type);
+          break;
+        case "cloud_provider":
+          comparison = a.cloud_provider.localeCompare(b.cloud_provider);
+          break;
+        case "worker_node_category":
+          comparison = a.worker_node_category.localeCompare(b.worker_node_category);
+          break;
+        case "worker_node_type":
+          comparison = (a.worker_node_type || "").localeCompare(b.worker_node_type || "");
+          break;
+        case "total_issues":
+          comparison = a.total_issues - b.total_issues;
+          break;
+        case "total_potential_savings_percent":
+          comparison = a.total_potential_savings_percent - b.total_potential_savings_percent;
+          break;
+      }
+      return direction === "asc" ? comparison : -comparison;
+    });
+  }, [nodeTypeData, nodeTypeSort]);
+
+  // Sorted data for Jobs
+  const sortedJobRecommendations = useMemo(() => {
+    if (!jobRecommendations) return [];
+    return [...jobRecommendations].sort((a, b) => {
+      const { field, direction } = jobsSort;
+      let comparison = 0;
+      switch (field) {
+        case "source_cluster_name":
+          comparison = a.source_cluster_name.localeCompare(b.source_cluster_name);
+          break;
+        case "target_cluster_name":
+          comparison = a.target_cluster_name.localeCompare(b.target_cluster_name);
+          break;
+        case "job_count":
+          comparison = a.job_count - b.job_count;
+          break;
+        case "estimated_savings":
+          comparison = a.estimated_savings.localeCompare(b.estimated_savings);
+          break;
+      }
+      return direction === "asc" ? comparison : -comparison;
+    });
+  }, [jobRecommendations, jobsSort]);
+
+  // Sorted data for Schedule
+  const sortedScheduleRecommendations = useMemo(() => {
+    if (!scheduleRecommendations) return [];
+    return [...scheduleRecommendations].sort((a, b) => {
+      const { field, direction } = scheduleSort;
+      let comparison = 0;
+      switch (field) {
+        case "cluster_name":
+          comparison = a.cluster_name.localeCompare(b.cluster_name);
+          break;
+        case "current_auto_terminate_minutes":
+          comparison = (a.current_auto_terminate_minutes || 0) - (b.current_auto_terminate_minutes || 0);
+          break;
+        case "recommended_auto_terminate_minutes":
+          comparison = a.recommended_auto_terminate_minutes - b.recommended_auto_terminate_minutes;
+          break;
+        case "avg_idle_time_per_day_minutes":
+          comparison = a.avg_idle_time_per_day_minutes - b.avg_idle_time_per_day_minutes;
+          break;
+      }
+      return direction === "asc" ? comparison : -comparison;
+    });
+  }, [scheduleRecommendations, scheduleSort]);
 
   const collectMetrics = useCollectMetrics();
 
@@ -1796,16 +2088,42 @@ function OptimizationPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Photon</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">AQE</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Spark Version</th>
-                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
+                          <GenericSortableHeader<SparkConfigSortField>
+                            label="Cluster"
+                            field="cluster_name"
+                            currentSort={sparkConfigSort}
+                            onSort={handleSparkConfigSort}
+                          />
+                          <GenericSortableHeader<SparkConfigSortField>
+                            label="Photon"
+                            field="is_photon_enabled"
+                            currentSort={sparkConfigSort}
+                            onSort={handleSparkConfigSort}
+                          />
+                          <GenericSortableHeader<SparkConfigSortField>
+                            label="AQE"
+                            field="aqe_enabled"
+                            currentSort={sparkConfigSort}
+                            onSort={handleSparkConfigSort}
+                          />
+                          <GenericSortableHeader<SparkConfigSortField>
+                            label="Spark Version"
+                            field="spark_version"
+                            currentSort={sparkConfigSort}
+                            onSort={handleSparkConfigSort}
+                          />
+                          <GenericSortableHeader<SparkConfigSortField>
+                            label="Issues"
+                            field="total_issues"
+                            currentSort={sparkConfigSort}
+                            onSort={handleSparkConfigSort}
+                            align="center"
+                          />
                           <th className="text-right py-3 px-4 font-medium text-sm"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {sparkConfigData.map((cluster) => (
+                        {sortedSparkConfigData.map((cluster) => (
                           <SparkConfigListRow key={cluster.cluster_id} cluster={cluster} />
                         ))}
                       </tbody>
@@ -1895,18 +2213,56 @@ function OptimizationPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Cloud</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Spot</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Node Type</th>
-                          <th className="text-center py-3 px-4 font-medium text-sm">Workers</th>
-                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
-                          <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                          <GenericSortableHeader<CostSortField>
+                            label="Cluster"
+                            field="cluster_name"
+                            currentSort={costSort}
+                            onSort={handleCostSort}
+                          />
+                          <GenericSortableHeader<CostSortField>
+                            label="Cloud"
+                            field="cloud_provider"
+                            currentSort={costSort}
+                            onSort={handleCostSort}
+                          />
+                          <GenericSortableHeader<CostSortField>
+                            label="Spot"
+                            field="uses_spot_instances"
+                            currentSort={costSort}
+                            onSort={handleCostSort}
+                          />
+                          <GenericSortableHeader<CostSortField>
+                            label="Node Type"
+                            field="node_type_id"
+                            currentSort={costSort}
+                            onSort={handleCostSort}
+                          />
+                          <GenericSortableHeader<CostSortField>
+                            label="Workers"
+                            field="num_workers"
+                            currentSort={costSort}
+                            onSort={handleCostSort}
+                            align="center"
+                          />
+                          <GenericSortableHeader<CostSortField>
+                            label="Issues"
+                            field="total_recommendations"
+                            currentSort={costSort}
+                            onSort={handleCostSort}
+                            align="center"
+                          />
+                          <GenericSortableHeader<CostSortField>
+                            label="Savings"
+                            field="total_potential_savings_percent"
+                            currentSort={costSort}
+                            onSort={handleCostSort}
+                            align="right"
+                          />
                           <th className="text-right py-3 px-4 font-medium text-sm"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {costData.map((cluster) => (
+                        {sortedCostData.map((cluster) => (
                           <CostAnalysisListRow key={cluster.cluster_id} cluster={cluster} />
                         ))}
                       </tbody>
@@ -2019,18 +2375,56 @@ function OptimizationPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Type</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Autoscale</th>
-                          <th className="text-center py-3 px-4 font-medium text-sm">Workers</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Auto-Term</th>
-                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
-                          <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                          <GenericSortableHeader<AutoscalingSortField>
+                            label="Cluster"
+                            field="cluster_name"
+                            currentSort={autoscalingSort}
+                            onSort={handleAutoscalingSort}
+                          />
+                          <GenericSortableHeader<AutoscalingSortField>
+                            label="Type"
+                            field="cluster_type"
+                            currentSort={autoscalingSort}
+                            onSort={handleAutoscalingSort}
+                          />
+                          <GenericSortableHeader<AutoscalingSortField>
+                            label="Autoscale"
+                            field="has_autoscaling"
+                            currentSort={autoscalingSort}
+                            onSort={handleAutoscalingSort}
+                          />
+                          <GenericSortableHeader<AutoscalingSortField>
+                            label="Workers"
+                            field="current_workers"
+                            currentSort={autoscalingSort}
+                            onSort={handleAutoscalingSort}
+                            align="center"
+                          />
+                          <GenericSortableHeader<AutoscalingSortField>
+                            label="Auto-Term"
+                            field="auto_terminate_minutes"
+                            currentSort={autoscalingSort}
+                            onSort={handleAutoscalingSort}
+                          />
+                          <GenericSortableHeader<AutoscalingSortField>
+                            label="Issues"
+                            field="total_issues"
+                            currentSort={autoscalingSort}
+                            onSort={handleAutoscalingSort}
+                            align="center"
+                          />
+                          <GenericSortableHeader<AutoscalingSortField>
+                            label="Savings"
+                            field="total_potential_savings_percent"
+                            currentSort={autoscalingSort}
+                            onSort={handleAutoscalingSort}
+                            align="right"
+                          />
                           <th className="text-right py-3 px-4 font-medium text-sm"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {autoscalingData.map((cluster) => (
+                        {sortedAutoscalingData.map((cluster) => (
                           <AutoscalingAnalysisListRow key={cluster.cluster_id} cluster={cluster} />
                         ))}
                       </tbody>
@@ -2159,18 +2553,55 @@ function OptimizationPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/50">
-                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Type</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Cloud</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Category</th>
-                          <th className="text-left py-3 px-4 font-medium text-sm">Node Type</th>
-                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
-                          <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                          <GenericSortableHeader<NodeTypeSortField>
+                            label="Cluster"
+                            field="cluster_name"
+                            currentSort={nodeTypeSort}
+                            onSort={handleNodeTypeSort}
+                          />
+                          <GenericSortableHeader<NodeTypeSortField>
+                            label="Type"
+                            field="cluster_type"
+                            currentSort={nodeTypeSort}
+                            onSort={handleNodeTypeSort}
+                          />
+                          <GenericSortableHeader<NodeTypeSortField>
+                            label="Cloud"
+                            field="cloud_provider"
+                            currentSort={nodeTypeSort}
+                            onSort={handleNodeTypeSort}
+                          />
+                          <GenericSortableHeader<NodeTypeSortField>
+                            label="Category"
+                            field="worker_node_category"
+                            currentSort={nodeTypeSort}
+                            onSort={handleNodeTypeSort}
+                          />
+                          <GenericSortableHeader<NodeTypeSortField>
+                            label="Node Type"
+                            field="worker_node_type"
+                            currentSort={nodeTypeSort}
+                            onSort={handleNodeTypeSort}
+                          />
+                          <GenericSortableHeader<NodeTypeSortField>
+                            label="Issues"
+                            field="total_issues"
+                            currentSort={nodeTypeSort}
+                            onSort={handleNodeTypeSort}
+                            align="center"
+                          />
+                          <GenericSortableHeader<NodeTypeSortField>
+                            label="Savings"
+                            field="total_potential_savings_percent"
+                            currentSort={nodeTypeSort}
+                            onSort={handleNodeTypeSort}
+                            align="right"
+                          />
                           <th className="text-right py-3 px-4 font-medium text-sm"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {nodeTypeData.map((cluster) => (
+                        {sortedNodeTypeData.map((cluster) => (
                           <NodeTypeAnalysisListRow key={cluster.cluster_id} cluster={cluster} />
                         ))}
                       </tbody>
@@ -2258,15 +2689,37 @@ function OptimizationPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left py-3 px-4 font-medium text-sm">Source Cluster</th>
-                        <th className="text-left py-3 px-4 font-medium text-sm">Target Cluster</th>
-                        <th className="text-center py-3 px-4 font-medium text-sm">Jobs</th>
+                        <GenericSortableHeader<JobsSortField>
+                          label="Source Cluster"
+                          field="source_cluster_name"
+                          currentSort={jobsSort}
+                          onSort={handleJobsSort}
+                        />
+                        <GenericSortableHeader<JobsSortField>
+                          label="Target Cluster"
+                          field="target_cluster_name"
+                          currentSort={jobsSort}
+                          onSort={handleJobsSort}
+                        />
+                        <GenericSortableHeader<JobsSortField>
+                          label="Jobs"
+                          field="job_count"
+                          currentSort={jobsSort}
+                          onSort={handleJobsSort}
+                          align="center"
+                        />
                         <th className="text-left py-3 px-4 font-medium text-sm">Reason</th>
-                        <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                        <GenericSortableHeader<JobsSortField>
+                          label="Savings"
+                          field="estimated_savings"
+                          currentSort={jobsSort}
+                          onSort={handleJobsSort}
+                          align="right"
+                        />
                       </tr>
                     </thead>
                     <tbody>
-                      {jobRecommendations.map((rec, idx) => (
+                      {sortedJobRecommendations.map((rec, idx) => (
                         <tr key={idx} className="border-b hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-4">
                             <Link
@@ -2383,16 +2836,39 @@ function OptimizationPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-muted/50">
-                        <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
-                        <th className="text-center py-3 px-4 font-medium text-sm">Current</th>
-                        <th className="text-center py-3 px-4 font-medium text-sm">Recommended</th>
-                        <th className="text-center py-3 px-4 font-medium text-sm">Avg Idle/Day</th>
+                        <GenericSortableHeader<ScheduleSortField>
+                          label="Cluster"
+                          field="cluster_name"
+                          currentSort={scheduleSort}
+                          onSort={handleScheduleSort}
+                        />
+                        <GenericSortableHeader<ScheduleSortField>
+                          label="Current"
+                          field="current_auto_terminate_minutes"
+                          currentSort={scheduleSort}
+                          onSort={handleScheduleSort}
+                          align="center"
+                        />
+                        <GenericSortableHeader<ScheduleSortField>
+                          label="Recommended"
+                          field="recommended_auto_terminate_minutes"
+                          currentSort={scheduleSort}
+                          onSort={handleScheduleSort}
+                          align="center"
+                        />
+                        <GenericSortableHeader<ScheduleSortField>
+                          label="Avg Idle/Day"
+                          field="avg_idle_time_per_day_minutes"
+                          currentSort={scheduleSort}
+                          onSort={handleScheduleSort}
+                          align="center"
+                        />
                         <th className="text-left py-3 px-4 font-medium text-sm">Peak Hours</th>
                         <th className="text-right py-3 px-4 font-medium text-sm"></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {scheduleRecommendations.map((rec, idx) => (
+                      {sortedScheduleRecommendations.map((rec, idx) => (
                         <tr key={idx} className="border-b hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-4">
                             <Link
