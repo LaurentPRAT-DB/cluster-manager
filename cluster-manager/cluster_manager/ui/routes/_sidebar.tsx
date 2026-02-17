@@ -1,6 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import {
-  BarChart3,
   ChevronLeft,
   ChevronRight,
   Cpu,
@@ -16,7 +15,6 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { to: "/clusters", label: "Clusters", icon: Cpu },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/optimization", label: "Optimization", icon: Lightbulb },
   { to: "/policies", label: "Policies", icon: Shield },
 ];
