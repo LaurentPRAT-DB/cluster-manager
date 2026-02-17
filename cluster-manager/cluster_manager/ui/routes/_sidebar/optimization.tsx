@@ -6,14 +6,23 @@ import {
   ArrowUpDown,
   BarChart3,
   Calendar,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
   Clock,
+  Cloud,
+  Cpu,
   DollarSign,
+  ExternalLink,
+  HardDrive,
+  LayoutGrid,
   Lightbulb,
+  List,
   Loader2,
   Play,
   RefreshCw,
+  Server,
+  Settings,
   Target,
   TrendingDown,
   TrendingUp,
@@ -37,12 +46,28 @@ import {
 import { toast } from "sonner";
 
 import {
+  useAutoscalingRecommendations,
   useCollectMetrics,
+  useCostRecommendations,
   useJobRecommendations,
+  useNodeTypeRecommendations,
   useOptimizationSummary,
   useOversizedClusters,
   useScheduleRecommendations,
+  useSparkConfigRecommendations,
   useUtilizationTrends,
+  type AutoscalingIssueType,
+  type AutoscalingSeverity,
+  type ClusterAutoscalingAnalysis,
+  type ClusterCostAnalysis,
+  type ClusterNodeTypeAnalysis,
+  type ClusterSparkConfigAnalysis,
+  type CostOptimizationCategory,
+  type CostRecommendationSeverity,
+  type NodeTypeCategory,
+  type NodeTypeIssueType,
+  type NodeTypeSeverity,
+  type SparkConfigSeverity,
 } from "@/lib/api";
 import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 
@@ -115,6 +140,1000 @@ function ClusterTypeBadge({ type }: { type: string }) {
   );
 }
 
+function SeverityBadge({ severity }: { severity: SparkConfigSeverity }) {
+  const severityColors: Record<SparkConfigSeverity, string> = {
+    high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
+  return (
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-medium uppercase", severityColors[severity])}>
+      {severity}
+    </span>
+  );
+}
+
+function PhotonBadge({ enabled }: { enabled: boolean }) {
+  return enabled ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      <Zap size={12} />
+      Photon
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+      Standard
+    </span>
+  );
+}
+
+function AQEBadge({ enabled }: { enabled: boolean | null }) {
+  if (enabled === null) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+        AQE: Default
+      </span>
+    );
+  }
+  return enabled ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      <CheckCircle size={12} />
+      AQE
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+      <AlertTriangle size={12} />
+      AQE Off
+    </span>
+  );
+}
+
+function SpotBadge({ usesSpot }: { usesSpot: boolean }) {
+  return usesSpot ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      <Zap size={12} />
+      Spot
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+      On-Demand
+    </span>
+  );
+}
+
+function CloudBadge({ provider }: { provider: string }) {
+  const colors: Record<string, string> = {
+    aws: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    azure: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    gcp: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  };
+  return (
+    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium uppercase", colors[provider] || "bg-gray-100 text-gray-600")}>
+      <Cloud size={12} />
+      {provider}
+    </span>
+  );
+}
+
+function CostSeverityBadge({ severity }: { severity: CostRecommendationSeverity }) {
+  const severityColors: Record<CostRecommendationSeverity, string> = {
+    high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
+  return (
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-medium uppercase", severityColors[severity])}>
+      {severity}
+    </span>
+  );
+}
+
+function CostCategoryIcon({ category }: { category: CostOptimizationCategory }) {
+  const icons: Record<CostOptimizationCategory, React.ReactNode> = {
+    spot_instances: <Zap size={14} />,
+    node_type: <Server size={14} />,
+    storage: <HardDrive size={14} />,
+    autoscaling: <TrendingUp size={14} />,
+    serverless: <Cloud size={14} />,
+  };
+  return icons[category] || <DollarSign size={14} />;
+}
+
+function CostCategoryLabel({ category }: { category: CostOptimizationCategory }) {
+  const labels: Record<CostOptimizationCategory, string> = {
+    spot_instances: "Spot Instances",
+    node_type: "Node Type",
+    storage: "Storage",
+    autoscaling: "Autoscaling",
+    serverless: "Serverless",
+  };
+  return <span>{labels[category] || category}</span>;
+}
+
+function AutoscalingSeverityBadge({ severity }: { severity: AutoscalingSeverity }) {
+  const severityColors: Record<AutoscalingSeverity, string> = {
+    high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
+  return (
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-medium uppercase", severityColors[severity])}>
+      {severity}
+    </span>
+  );
+}
+
+function AutoscalingIssueIcon({ issueType }: { issueType: AutoscalingIssueType }) {
+  const icons: Record<AutoscalingIssueType, React.ReactNode> = {
+    wide_range: <TrendingUp size={14} />,
+    narrow_range: <TrendingDown size={14} />,
+    high_minimum: <AlertTriangle size={14} />,
+    no_autoscaling: <Target size={14} />,
+    inefficient_range: <Settings size={14} />,
+  };
+  return icons[issueType] || <TrendingUp size={14} />;
+}
+
+function AutoscalingIssueLabel({ issueType }: { issueType: AutoscalingIssueType }) {
+  const labels: Record<AutoscalingIssueType, string> = {
+    wide_range: "Wide Range",
+    narrow_range: "Narrow Range",
+    high_minimum: "High Minimum",
+    no_autoscaling: "No Autoscaling",
+    inefficient_range: "Inefficient Config",
+  };
+  return <span>{labels[issueType] || issueType}</span>;
+}
+
+function AutoscalingBadge({ hasAutoscaling }: { hasAutoscaling: boolean }) {
+  return hasAutoscaling ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      <TrendingUp size={12} />
+      Autoscale
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+      Fixed Size
+    </span>
+  );
+}
+
+function AutoTerminateBadge({ minutes }: { minutes: number | null }) {
+  if (minutes === null || minutes === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+        <Clock size={12} />
+        No Auto-Term
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      <Clock size={12} />
+      {minutes}m
+    </span>
+  );
+}
+
+// View Toggle Component
+type ViewMode = "cards" | "list";
+
+function ViewToggle({ view, onViewChange }: { view: ViewMode; onViewChange: (view: ViewMode) => void }) {
+  return (
+    <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+      <button
+        onClick={() => onViewChange("cards")}
+        className={cn(
+          "p-1.5 rounded transition-colors",
+          view === "cards"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+        title="Card view"
+      >
+        <LayoutGrid size={16} />
+      </button>
+      <button
+        onClick={() => onViewChange("list")}
+        className={cn(
+          "p-1.5 rounded transition-colors",
+          view === "list"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+        title="List view"
+      >
+        <List size={16} />
+      </button>
+    </div>
+  );
+}
+
+// Autoscaling Analysis Cluster Card Component
+function AutoscalingAnalysisClusterCard({ cluster }: { cluster: ClusterAutoscalingAnalysis }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const highSeverityCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumSeverityCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <div className="bg-muted/30 rounded-lg border">
+      <div
+        className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <Link
+                to="/clusters/$clusterId"
+                params={{ clusterId: cluster.cluster_id }}
+                className="font-medium hover:text-primary"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {cluster.cluster_name}
+              </Link>
+              <div className="flex items-center gap-2 mt-1">
+                <ClusterTypeBadge type={cluster.cluster_type} />
+                <AutoscalingBadge hasAutoscaling={cluster.has_autoscaling} />
+                <AutoTerminateBadge minutes={cluster.auto_terminate_minutes} />
+                {cluster.has_autoscaling && cluster.min_workers !== null && cluster.max_workers !== null && (
+                  <span className="text-xs text-muted-foreground">
+                    {cluster.min_workers}-{cluster.max_workers} workers
+                  </span>
+                )}
+                {!cluster.has_autoscaling && (
+                  <span className="text-xs text-muted-foreground">
+                    {cluster.current_workers} workers
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="flex items-center gap-2">
+                {highSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    {highSeverityCount} high
+                  </span>
+                )}
+                {mediumSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    {mediumSeverityCount} medium
+                  </span>
+                )}
+              </div>
+              <span className="text-sm font-medium text-green-600">
+                Up to {cluster.total_potential_savings_percent}% savings
+              </span>
+            </div>
+            {expanded ? (
+              <ChevronUp size={18} className="text-muted-foreground" />
+            ) : (
+              <ChevronDown size={18} className="text-muted-foreground" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {expanded && cluster.recommendations.length > 0 && (
+        <div className="border-t p-4 space-y-3">
+          {cluster.recommendations.map((rec, idx) => (
+            <div
+              key={idx}
+              className="p-3 bg-background rounded-lg border"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="flex items-center gap-1 text-sm font-medium">
+                      <AutoscalingIssueIcon issueType={rec.issue_type} />
+                      <AutoscalingIssueLabel issueType={rec.issue_type} />
+                    </span>
+                    <AutoscalingSeverityBadge severity={rec.severity} />
+                    <span className="text-xs text-green-600 font-medium">
+                      ~{rec.estimated_savings_percent}% savings
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium mt-2">{rec.recommendation}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{rec.reason}</p>
+                  <div className="flex items-center gap-4 mt-2 text-sm">
+                    <span className="text-muted-foreground">
+                      Current: <code className="font-mono text-xs bg-muted px-1 rounded">{rec.current_config}</code>
+                    </span>
+                  </div>
+                  {rec.implementation_steps.length > 0 && (
+                    <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
+                      <p className="font-medium text-xs text-muted-foreground mb-1">Implementation Steps:</p>
+                      <ol className="list-decimal list-inside space-y-0.5 text-muted-foreground">
+                        {rec.implementation_steps.map((step, i) => (
+                          <li key={i}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Node Type Badge Components
+function NodeTypeSeverityBadge({ severity }: { severity: NodeTypeSeverity }) {
+  const severityColors: Record<NodeTypeSeverity, string> = {
+    high: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    medium: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+    low: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  };
+
+  return (
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-medium uppercase", severityColors[severity])}>
+      {severity}
+    </span>
+  );
+}
+
+function NodeTypeIssueIcon({ issueType }: { issueType: NodeTypeIssueType }) {
+  const icons: Record<NodeTypeIssueType, React.ReactNode> = {
+    oversized_driver: <Server size={14} />,
+    undersized_driver: <Server size={14} />,
+    wrong_category: <Settings size={14} />,
+    overprovisioned: <TrendingUp size={14} />,
+    mismatched_driver_worker: <ArrowUpDown size={14} />,
+    gpu_underutilized: <Cpu size={14} />,
+    legacy_instance: <Clock size={14} />,
+  };
+  return icons[issueType] || <Server size={14} />;
+}
+
+function NodeTypeIssueLabel({ issueType }: { issueType: NodeTypeIssueType }) {
+  const labels: Record<NodeTypeIssueType, string> = {
+    oversized_driver: "Oversized Driver",
+    undersized_driver: "Undersized Driver",
+    wrong_category: "Wrong Category",
+    overprovisioned: "Overprovisioned",
+    mismatched_driver_worker: "Mismatched",
+    gpu_underutilized: "GPU Underutilized",
+    legacy_instance: "Legacy Instance",
+  };
+  return <span>{labels[issueType] || issueType}</span>;
+}
+
+function NodeTypeCategoryBadge({ category }: { category: NodeTypeCategory }) {
+  const categoryColors: Record<NodeTypeCategory, string> = {
+    memory_optimized: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    compute_optimized: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    general_purpose: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+    gpu: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    storage_optimized: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    unknown: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-500",
+  };
+  const categoryLabels: Record<NodeTypeCategory, string> = {
+    memory_optimized: "Memory",
+    compute_optimized: "Compute",
+    general_purpose: "General",
+    gpu: "GPU",
+    storage_optimized: "Storage",
+    unknown: "Unknown",
+  };
+  return (
+    <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-medium", categoryColors[category])}>
+      {categoryLabels[category]}
+    </span>
+  );
+}
+
+// Node Type Analysis Cluster Card Component
+function NodeTypeAnalysisClusterCard({ cluster }: { cluster: ClusterNodeTypeAnalysis }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const highSeverityCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumSeverityCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <div className="bg-muted/30 rounded-lg border">
+      <div
+        className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <Server className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <Link
+                to="/clusters/$clusterId"
+                params={{ clusterId: cluster.cluster_id }}
+                className="font-medium hover:text-primary"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {cluster.cluster_name}
+              </Link>
+              <div className="flex items-center gap-2 mt-1">
+                <ClusterTypeBadge type={cluster.cluster_type} />
+                <CloudBadge provider={cluster.cloud_provider} />
+                <NodeTypeCategoryBadge category={cluster.worker_node_category} />
+                {cluster.worker_node_type && (
+                  <span className="text-xs text-muted-foreground">
+                    {cluster.worker_node_type}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="flex items-center gap-2">
+                {highSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    {highSeverityCount} high
+                  </span>
+                )}
+                {mediumSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    {mediumSeverityCount} medium
+                  </span>
+                )}
+              </div>
+              <span className="text-sm font-medium text-green-600">
+                Up to {cluster.total_potential_savings_percent}% savings
+              </span>
+            </div>
+            {expanded ? (
+              <ChevronUp size={18} className="text-muted-foreground" />
+            ) : (
+              <ChevronDown size={18} className="text-muted-foreground" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {expanded && cluster.recommendations.length > 0 && (
+        <div className="border-t p-4 space-y-3">
+          {/* Cluster Node Type Summary */}
+          <div className="grid grid-cols-2 gap-4 p-3 bg-background rounded-lg border mb-3">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Worker Nodes</p>
+              <p className="text-sm font-medium">{cluster.worker_node_type || "Not specified"}</p>
+              <div className="flex items-center gap-1 mt-1">
+                <NodeTypeCategoryBadge category={cluster.worker_node_category} />
+                {cluster.worker_spec?.vcpus && (
+                  <span className="text-xs text-muted-foreground">{cluster.worker_spec.vcpus} vCPUs</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Driver Node</p>
+              <p className="text-sm font-medium">{cluster.driver_node_type || "Same as worker"}</p>
+              <div className="flex items-center gap-1 mt-1">
+                <NodeTypeCategoryBadge category={cluster.driver_node_category} />
+                {cluster.driver_spec?.vcpus && (
+                  <span className="text-xs text-muted-foreground">{cluster.driver_spec.vcpus} vCPUs</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {cluster.recommendations.map((rec, idx) => (
+            <div
+              key={idx}
+              className="p-3 bg-background rounded-lg border"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="flex items-center gap-1 text-sm font-medium">
+                      <NodeTypeIssueIcon issueType={rec.issue_type} />
+                      <NodeTypeIssueLabel issueType={rec.issue_type} />
+                    </span>
+                    <NodeTypeSeverityBadge severity={rec.severity} />
+                    <span className="text-xs text-green-600 font-medium">
+                      ~{rec.estimated_savings_percent}% savings
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium mt-2">{rec.recommended_config}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{rec.reason}</p>
+                  <div className="flex items-center gap-4 mt-2 text-sm">
+                    <span className="text-muted-foreground">
+                      Current: <code className="font-mono text-xs bg-muted px-1 rounded">{rec.current_config}</code>
+                    </span>
+                  </div>
+                  {rec.implementation_steps.length > 0 && (
+                    <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
+                      <p className="font-medium text-xs text-muted-foreground mb-1">Implementation Steps:</p>
+                      <ol className="list-decimal list-inside space-y-0.5 text-muted-foreground">
+                        {rec.implementation_steps.map((step, i) => (
+                          <li key={i}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Cost Analysis Cluster Card Component
+function CostAnalysisClusterCard({ cluster }: { cluster: ClusterCostAnalysis }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const highSeverityCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumSeverityCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <div className="bg-muted/30 rounded-lg border">
+      <div
+        className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <DollarSign className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <Link
+                to="/clusters/$clusterId"
+                params={{ clusterId: cluster.cluster_id }}
+                className="font-medium hover:text-primary"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {cluster.cluster_name}
+              </Link>
+              <div className="flex items-center gap-2 mt-1">
+                <CloudBadge provider={cluster.cloud_provider} />
+                <SpotBadge usesSpot={cluster.uses_spot_instances} />
+                {cluster.node_type_id && (
+                  <span className="text-xs text-muted-foreground">
+                    {cluster.node_type_id}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="flex items-center gap-2">
+                {highSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    {highSeverityCount} high
+                  </span>
+                )}
+                {mediumSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    {mediumSeverityCount} medium
+                  </span>
+                )}
+              </div>
+              <span className="text-sm font-medium text-green-600">
+                Up to {cluster.total_potential_savings_percent}% savings
+              </span>
+            </div>
+            {expanded ? (
+              <ChevronUp size={18} className="text-muted-foreground" />
+            ) : (
+              <ChevronDown size={18} className="text-muted-foreground" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {expanded && cluster.recommendations.length > 0 && (
+        <div className="border-t p-4 space-y-3">
+          {cluster.recommendations.map((rec, idx) => (
+            <div
+              key={idx}
+              className="p-3 bg-background rounded-lg border"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="flex items-center gap-1 text-sm font-medium">
+                      <CostCategoryIcon category={rec.category} />
+                      <CostCategoryLabel category={rec.category} />
+                    </span>
+                    <CostSeverityBadge severity={rec.severity} />
+                    <span className="text-xs text-green-600 font-medium">
+                      ~{rec.estimated_savings_percent}% savings
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium mt-2">{rec.recommendation}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{rec.reason}</p>
+                  <div className="flex items-center gap-4 mt-2 text-sm">
+                    <span className="text-muted-foreground">
+                      Current: <code className="font-mono text-xs bg-muted px-1 rounded">{rec.current_state}</code>
+                    </span>
+                  </div>
+                  {rec.implementation_steps.length > 0 && (
+                    <div className="mt-3 p-2 bg-muted/50 rounded text-sm">
+                      <p className="font-medium text-xs text-muted-foreground mb-1">Implementation Steps:</p>
+                      <ol className="list-decimal list-inside space-y-0.5 text-muted-foreground">
+                        {rec.implementation_steps.map((step, i) => (
+                          <li key={i}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Spark Config Cluster Card Component
+function SparkConfigClusterCard({ cluster }: { cluster: ClusterSparkConfigAnalysis }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const highSeverityCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumSeverityCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <div className="bg-muted/30 rounded-lg border">
+      <div
+        className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+              <Cpu className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <Link
+                to="/clusters/$clusterId"
+                params={{ clusterId: cluster.cluster_id }}
+                className="font-medium hover:text-primary"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {cluster.cluster_name}
+              </Link>
+              <div className="flex items-center gap-2 mt-1">
+                <PhotonBadge enabled={cluster.is_photon_enabled} />
+                <AQEBadge enabled={cluster.aqe_enabled} />
+                {cluster.spark_version && (
+                  <span className="text-xs text-muted-foreground">
+                    {cluster.spark_version}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="flex items-center gap-2">
+                {highSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    {highSeverityCount} high
+                  </span>
+                )}
+                {mediumSeverityCount > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                    {mediumSeverityCount} medium
+                  </span>
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {cluster.total_issues} issue{cluster.total_issues !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+            {expanded ? (
+              <ChevronUp size={18} className="text-muted-foreground" />
+            ) : (
+              <ChevronDown size={18} className="text-muted-foreground" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {expanded && cluster.recommendations.length > 0 && (
+        <div className="border-t p-4 space-y-3">
+          {cluster.recommendations.map((rec, idx) => (
+            <div
+              key={idx}
+              className="p-3 bg-background rounded-lg border"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded">
+                      {rec.setting}
+                    </code>
+                    <SeverityBadge severity={rec.severity} />
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {rec.impact}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">{rec.reason}</p>
+                  <div className="flex items-center gap-4 mt-2 text-sm">
+                    <span className="text-muted-foreground">
+                      Current: <code className="font-mono">{rec.current_value || "not set"}</code>
+                    </span>
+                    <ArrowRight size={14} className="text-muted-foreground" />
+                    <span className="text-green-600 dark:text-green-400">
+                      Recommended: <code className="font-mono">{rec.recommended_value}</code>
+                    </span>
+                  </div>
+                </div>
+                {rec.documentation_link && (
+                  <a
+                    href={rec.documentation_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-muted rounded-lg transition-colors flex-shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink size={16} className="text-muted-foreground" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// List Row Components for alternative view
+
+// Autoscaling List Row
+function AutoscalingAnalysisListRow({ cluster }: { cluster: ClusterAutoscalingAnalysis }) {
+  const highCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <tr className="border-b hover:bg-muted/50 transition-colors">
+      <td className="py-3 px-4">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="font-medium hover:text-primary"
+        >
+          {cluster.cluster_name}
+        </Link>
+      </td>
+      <td className="py-3 px-4">
+        <ClusterTypeBadge type={cluster.cluster_type} />
+      </td>
+      <td className="py-3 px-4">
+        <AutoscalingBadge hasAutoscaling={cluster.has_autoscaling} />
+      </td>
+      <td className="py-3 px-4 text-center">
+        {cluster.has_autoscaling && cluster.min_workers !== null && cluster.max_workers !== null
+          ? `${cluster.min_workers}-${cluster.max_workers}`
+          : cluster.current_workers}
+      </td>
+      <td className="py-3 px-4">
+        <AutoTerminateBadge minutes={cluster.auto_terminate_minutes} />
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="flex items-center justify-center gap-1">
+          {highCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              {highCount}
+            </span>
+          )}
+          {mediumCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+              {mediumCount}
+            </span>
+          )}
+          {highCount === 0 && mediumCount === 0 && (
+            <span className="text-muted-foreground">{cluster.total_issues}</span>
+          )}
+        </div>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
+        >
+          <ArrowRight size={16} />
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
+// Node Type List Row
+function NodeTypeAnalysisListRow({ cluster }: { cluster: ClusterNodeTypeAnalysis }) {
+  const highCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <tr className="border-b hover:bg-muted/50 transition-colors">
+      <td className="py-3 px-4">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="font-medium hover:text-primary"
+        >
+          {cluster.cluster_name}
+        </Link>
+      </td>
+      <td className="py-3 px-4">
+        <ClusterTypeBadge type={cluster.cluster_type} />
+      </td>
+      <td className="py-3 px-4">
+        <CloudBadge provider={cluster.cloud_provider} />
+      </td>
+      <td className="py-3 px-4">
+        <NodeTypeCategoryBadge category={cluster.worker_node_category} />
+      </td>
+      <td className="py-3 px-4 text-sm text-muted-foreground">
+        {cluster.worker_node_type || "-"}
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="flex items-center justify-center gap-1">
+          {highCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              {highCount}
+            </span>
+          )}
+          {mediumCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+              {mediumCount}
+            </span>
+          )}
+          {highCount === 0 && mediumCount === 0 && (
+            <span className="text-muted-foreground">{cluster.total_issues}</span>
+          )}
+        </div>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
+        >
+          <ArrowRight size={16} />
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
+// Cost Analysis List Row
+function CostAnalysisListRow({ cluster }: { cluster: ClusterCostAnalysis }) {
+  const highCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <tr className="border-b hover:bg-muted/50 transition-colors">
+      <td className="py-3 px-4">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="font-medium hover:text-primary"
+        >
+          {cluster.cluster_name}
+        </Link>
+      </td>
+      <td className="py-3 px-4">
+        <CloudBadge provider={cluster.cloud_provider} />
+      </td>
+      <td className="py-3 px-4">
+        <SpotBadge usesSpot={cluster.uses_spot_instances} />
+      </td>
+      <td className="py-3 px-4 text-sm text-muted-foreground">
+        {cluster.node_type_id || "-"}
+      </td>
+      <td className="py-3 px-4 text-center">{cluster.num_workers}</td>
+      <td className="py-3 px-4 text-center">
+        <div className="flex items-center justify-center gap-1">
+          {highCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              {highCount}
+            </span>
+          )}
+          {mediumCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+              {mediumCount}
+            </span>
+          )}
+          {highCount === 0 && mediumCount === 0 && (
+            <span className="text-muted-foreground">{cluster.total_recommendations}</span>
+          )}
+        </div>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
+        >
+          <ArrowRight size={16} />
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
+// Spark Config List Row
+function SparkConfigListRow({ cluster }: { cluster: ClusterSparkConfigAnalysis }) {
+  const highCount = cluster.recommendations.filter((r) => r.severity === "high").length;
+  const mediumCount = cluster.recommendations.filter((r) => r.severity === "medium").length;
+
+  return (
+    <tr className="border-b hover:bg-muted/50 transition-colors">
+      <td className="py-3 px-4">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="font-medium hover:text-primary"
+        >
+          {cluster.cluster_name}
+        </Link>
+      </td>
+      <td className="py-3 px-4">
+        <PhotonBadge enabled={cluster.is_photon_enabled} />
+      </td>
+      <td className="py-3 px-4">
+        <AQEBadge enabled={cluster.aqe_enabled} />
+      </td>
+      <td className="py-3 px-4 text-sm text-muted-foreground">
+        {cluster.spark_version || "-"}
+      </td>
+      <td className="py-3 px-4 text-center">
+        <div className="flex items-center justify-center gap-1">
+          {highCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              {highCount}
+            </span>
+          )}
+          {mediumCount > 0 && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+              {mediumCount}
+            </span>
+          )}
+          {highCount === 0 && mediumCount === 0 && (
+            <span className="text-muted-foreground">{cluster.total_issues}</span>
+          )}
+        </div>
+      </td>
+      <td className="py-3 px-4 text-right">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
+        >
+          <ArrowRight size={16} />
+        </Link>
+      </td>
+    </tr>
+  );
+}
+
 // Sorting types and helper
 type SortField = "cluster_name" | "cluster_type" | "current_workers" | "avg_efficiency_score" | "recommended_workers" | "potential_cost_savings";
 type SortDirection = "asc" | "desc";
@@ -159,7 +1178,7 @@ function SortableHeader({
   );
 }
 
-type TabType = "trends" | "oversized" | "jobs" | "schedule";
+type TabType = "trends" | "oversized" | "spark-config" | "cost" | "autoscaling" | "node-types" | "jobs" | "schedule";
 
 function OptimizationPage() {
   const [activeTab, setActiveTab] = useState<TabType>("trends");
@@ -169,12 +1188,24 @@ function OptimizationPage() {
   const { data: jobRecommendations, isLoading: jobsLoading } = useJobRecommendations();
   const { data: scheduleRecommendations, isLoading: scheduleLoading } = useScheduleRecommendations();
   const { data: trendsData, isLoading: trendsLoading } = useUtilizationTrends(30, 7);
+  const { data: sparkConfigData, isLoading: sparkConfigLoading } = useSparkConfigRecommendations();
+  const { data: costData, isLoading: costLoading } = useCostRecommendations();
+  const { data: autoscalingData, isLoading: autoscalingLoading } = useAutoscalingRecommendations();
+  const { data: nodeTypeData, isLoading: nodeTypeLoading } = useNodeTypeRecommendations();
 
   // Sorting state for oversized clusters table
   const [oversizedSort, setOversizedSort] = useState<{ field: SortField; direction: SortDirection }>({
     field: "potential_cost_savings",
     direction: "desc",
   });
+
+  // View mode state for each tab
+  const [sparkConfigView, setSparkConfigView] = useState<ViewMode>("cards");
+  const [costView, setCostView] = useState<ViewMode>("cards");
+  const [autoscalingView, setAutoscalingView] = useState<ViewMode>("cards");
+  const [nodeTypeView, setNodeTypeView] = useState<ViewMode>("cards");
+  const [jobsView, setJobsView] = useState<ViewMode>("cards");
+  const [scheduleView, setScheduleView] = useState<ViewMode>("cards");
 
   const handleOversizedSort = (field: SortField) => {
     setOversizedSort((prev) => ({
@@ -231,6 +1262,10 @@ function OptimizationPage() {
   const tabs = [
     { id: "trends" as const, label: "Utilization Trends", icon: TrendingUp },
     { id: "oversized" as const, label: "Oversized Clusters", icon: TrendingDown },
+    { id: "spark-config" as const, label: "Spark Config", icon: Settings },
+    { id: "cost" as const, label: "Cost Optimization", icon: DollarSign },
+    { id: "autoscaling" as const, label: "Autoscaling", icon: ArrowUpDown },
+    { id: "node-types" as const, label: "Node Types", icon: Server },
     { id: "jobs" as const, label: "Job Recommendations", icon: Play },
     { id: "schedule" as const, label: "Schedule Optimization", icon: Calendar },
   ];
@@ -701,11 +1736,468 @@ function OptimizationPage() {
           </div>
         )}
 
+        {activeTab === "spark-config" && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-indigo-500" />
+                <h2 className="text-lg font-semibold">Spark Configuration Analysis</h2>
+              </div>
+              {sparkConfigData && sparkConfigData.length > 0 && (
+                <ViewToggle view={sparkConfigView} onViewChange={setSparkConfigView} />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Analyze Spark configurations across all clusters and identify optimization opportunities for AQE, Photon, shuffle partitions, and more.
+            </p>
+
+            {sparkConfigLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : sparkConfigData && sparkConfigData.length > 0 ? (
+              <div className="space-y-6">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Cpu size={14} />
+                      Clusters with Issues
+                    </div>
+                    <p className="text-2xl font-bold">{sparkConfigData.length}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <AlertTriangle size={14} />
+                      Total Recommendations
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {sparkConfigData.reduce((sum, c) => sum + c.total_issues, 0)}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Zap size={14} />
+                      Using Photon
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {sparkConfigData.filter((c) => c.is_photon_enabled).length} / {sparkConfigData.length}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cluster Cards or List */}
+                {sparkConfigView === "cards" ? (
+                  sparkConfigData.map((cluster) => (
+                    <SparkConfigClusterCard key={cluster.cluster_id} cluster={cluster} />
+                  ))
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Photon</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">AQE</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Spark Version</th>
+                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
+                          <th className="text-right py-3 px-4 font-medium text-sm"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sparkConfigData.map((cluster) => (
+                          <SparkConfigListRow key={cluster.cluster_id} cluster={cluster} />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 opacity-50 text-green-500" />
+                <p>All clusters have optimal Spark configurations</p>
+                <p className="text-sm mt-1">No configuration issues detected</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "cost" && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-500" />
+                <h2 className="text-lg font-semibold">Cost Optimization</h2>
+              </div>
+              {costData && costData.length > 0 && (
+                <ViewToggle view={costView} onViewChange={setCostView} />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Identify cost-saving opportunities including Spot instances, node type optimization, storage, and autoscaling configurations.
+            </p>
+
+            {costLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : costData && costData.length > 0 ? (
+              <div className="space-y-6">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Server size={14} />
+                      Clusters Analyzed
+                    </div>
+                    <p className="text-2xl font-bold">{costData.length}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <AlertTriangle size={14} />
+                      Total Recommendations
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {costData.reduce((sum, c) => sum + c.total_recommendations, 0)}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Zap size={14} />
+                      Using Spot/Preemptible
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {costData.filter((c) => c.uses_spot_instances).length} / {costData.length}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <DollarSign size={14} />
+                      Avg Potential Savings
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">
+                      {formatNumber(
+                        costData.reduce((sum, c) => sum + c.total_potential_savings_percent, 0) / costData.length,
+                        0
+                      )}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Cluster Cards or List */}
+                {costView === "cards" ? (
+                  costData.map((cluster) => (
+                    <CostAnalysisClusterCard key={cluster.cluster_id} cluster={cluster} />
+                  ))
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Cloud</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Spot</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Node Type</th>
+                          <th className="text-center py-3 px-4 font-medium text-sm">Workers</th>
+                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
+                          <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                          <th className="text-right py-3 px-4 font-medium text-sm"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {costData.map((cluster) => (
+                          <CostAnalysisListRow key={cluster.cluster_id} cluster={cluster} />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 opacity-50 text-green-500" />
+                <p>All clusters are cost-optimized</p>
+                <p className="text-sm mt-1">No cost optimization recommendations at this time</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "autoscaling" && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-5 w-5 text-purple-500" />
+                <h2 className="text-lg font-semibold">Autoscaling Analysis</h2>
+              </div>
+              {autoscalingData && autoscalingData.length > 0 && (
+                <ViewToggle view={autoscalingView} onViewChange={setAutoscalingView} />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Analyze autoscaling configurations for optimal cost efficiency. Detects wide/narrow ranges, high minimums, and missing auto-termination.
+            </p>
+
+            {autoscalingLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : autoscalingData && autoscalingData.length > 0 ? (
+              <div className="space-y-6">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Server size={14} />
+                      Clusters Analyzed
+                    </div>
+                    <p className="text-2xl font-bold">{autoscalingData.length}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <AlertTriangle size={14} />
+                      Total Issues
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {autoscalingData.reduce((sum, c) => sum + c.total_issues, 0)}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <TrendingUp size={14} />
+                      Using Autoscaling
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {autoscalingData.filter((c) => c.has_autoscaling).length} / {autoscalingData.length}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <DollarSign size={14} />
+                      Avg Potential Savings
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">
+                      {formatNumber(
+                        autoscalingData.reduce((sum, c) => sum + c.total_potential_savings_percent, 0) / autoscalingData.length,
+                        0
+                      )}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Issue Type Distribution */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {[
+                    { type: "wide_range", label: "Wide Range", icon: TrendingUp },
+                    { type: "narrow_range", label: "Narrow Range", icon: TrendingDown },
+                    { type: "high_minimum", label: "High Minimum", icon: AlertTriangle },
+                    { type: "no_autoscaling", label: "No Autoscaling", icon: Target },
+                    { type: "inefficient_range", label: "Inefficient", icon: Settings },
+                  ].map(({ type, label, icon: Icon }) => {
+                    const count = autoscalingData.reduce(
+                      (sum, c) => sum + c.recommendations.filter((r) => r.issue_type === type).length,
+                      0
+                    );
+                    return (
+                      <div key={type} className="bg-muted/30 rounded-lg p-3 text-center">
+                        <Icon size={16} className="mx-auto mb-1 text-muted-foreground" />
+                        <p className="text-lg font-semibold">{count}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Cluster Cards or List */}
+                {autoscalingView === "cards" ? (
+                  autoscalingData.map((cluster) => (
+                    <AutoscalingAnalysisClusterCard key={cluster.cluster_id} cluster={cluster} />
+                  ))
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Type</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Autoscale</th>
+                          <th className="text-center py-3 px-4 font-medium text-sm">Workers</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Auto-Term</th>
+                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
+                          <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                          <th className="text-right py-3 px-4 font-medium text-sm"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {autoscalingData.map((cluster) => (
+                          <AutoscalingAnalysisListRow key={cluster.cluster_id} cluster={cluster} />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 opacity-50 text-green-500" />
+                <p>All clusters have optimal autoscaling configurations</p>
+                <p className="text-sm mt-1">No autoscaling issues detected</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "node-types" && (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Server className="h-5 w-5 text-orange-500" />
+                <h2 className="text-lg font-semibold">Node Type Analysis</h2>
+              </div>
+              {nodeTypeData && nodeTypeData.length > 0 && (
+                <ViewToggle view={nodeTypeView} onViewChange={setNodeTypeView} />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Analyze instance types for cost and performance optimization. Detects oversized drivers, GPU underutilization, legacy instances, and mismatched configurations.
+            </p>
+
+            {nodeTypeLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : nodeTypeData && nodeTypeData.length > 0 ? (
+              <div className="space-y-6">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Server size={14} />
+                      Clusters Analyzed
+                    </div>
+                    <p className="text-2xl font-bold">{nodeTypeData.length}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <AlertTriangle size={14} />
+                      Total Issues
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {nodeTypeData.reduce((sum, c) => sum + c.total_issues, 0)}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <Cpu size={14} />
+                      GPU Clusters
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {nodeTypeData.filter((c) => c.worker_node_category === "gpu").length}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                      <DollarSign size={14} />
+                      Avg Potential Savings
+                    </div>
+                    <p className="text-2xl font-bold text-green-600">
+                      {formatNumber(
+                        nodeTypeData.reduce((sum, c) => sum + c.total_potential_savings_percent, 0) / nodeTypeData.length,
+                        0
+                      )}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Issue Type Distribution */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { type: "oversized_driver", label: "Oversized Driver", icon: Server },
+                    { type: "gpu_underutilized", label: "GPU Underutilized", icon: Cpu },
+                    { type: "legacy_instance", label: "Legacy Instance", icon: Clock },
+                    { type: "overprovisioned", label: "Overprovisioned", icon: TrendingUp },
+                  ].map(({ type, label, icon: Icon }) => {
+                    const count = nodeTypeData.reduce(
+                      (sum, c) => sum + c.recommendations.filter((r) => r.issue_type === type).length,
+                      0
+                    );
+                    return (
+                      <div key={type} className="bg-muted/30 rounded-lg p-3 text-center">
+                        <Icon size={16} className="mx-auto mb-1 text-muted-foreground" />
+                        <p className="text-lg font-semibold">{count}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Node Type Category Distribution */}
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <p className="text-sm font-medium mb-3">Instance Category Distribution</p>
+                  <div className="flex flex-wrap gap-3">
+                    {["memory_optimized", "compute_optimized", "general_purpose", "gpu", "storage_optimized", "unknown"].map((cat) => {
+                      const count = nodeTypeData.filter((c) => c.worker_node_category === cat).length;
+                      if (count === 0) return null;
+                      return (
+                        <div key={cat} className="flex items-center gap-2">
+                          <NodeTypeCategoryBadge category={cat as NodeTypeCategory} />
+                          <span className="text-sm text-muted-foreground">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Cluster Cards or List */}
+                {nodeTypeView === "cards" ? (
+                  nodeTypeData.map((cluster) => (
+                    <NodeTypeAnalysisClusterCard key={cluster.cluster_id} cluster={cluster} />
+                  ))
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Type</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Cloud</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Category</th>
+                          <th className="text-left py-3 px-4 font-medium text-sm">Node Type</th>
+                          <th className="text-center py-3 px-4 font-medium text-sm">Issues</th>
+                          <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                          <th className="text-right py-3 px-4 font-medium text-sm"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {nodeTypeData.map((cluster) => (
+                          <NodeTypeAnalysisListRow key={cluster.cluster_id} cluster={cluster} />
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle className="h-12 w-12 mx-auto mb-4 opacity-50 text-green-500" />
+                <p>All clusters have optimal node type configurations</p>
+                <p className="text-sm mt-1">No node type issues detected</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === "jobs" && (
           <div className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Play className="h-5 w-5 text-blue-500" />
-              <h2 className="text-lg font-semibold">Job Cluster Recommendations</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Play className="h-5 w-5 text-blue-500" />
+                <h2 className="text-lg font-semibold">Job Cluster Recommendations</h2>
+              </div>
+              {jobRecommendations && jobRecommendations.length > 0 && (
+                <ViewToggle view={jobsView} onViewChange={setJobsView} />
+              )}
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Suggestions to consolidate job workloads onto underutilized clusters.
@@ -716,50 +2208,97 @@ function OptimizationPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : jobRecommendations && jobRecommendations.length > 0 ? (
-              <div className="space-y-4">
-                {jobRecommendations.map((rec, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 bg-muted/50 rounded-lg border border-transparent hover:border-primary/20 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                          <Zap className="h-5 w-5 text-blue-600" />
+              jobsView === "cards" ? (
+                <div className="space-y-4">
+                  {jobRecommendations.map((rec, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 bg-muted/50 rounded-lg border border-transparent hover:border-primary/20 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <Zap className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium">
+                              Move jobs from{" "}
+                              <Link
+                                to="/clusters/$clusterId"
+                                params={{ clusterId: rec.source_cluster_id }}
+                                className="text-primary hover:underline"
+                              >
+                                {rec.source_cluster_name}
+                              </Link>
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              Target:{" "}
+                              <Link
+                                to="/clusters/$clusterId"
+                                params={{ clusterId: rec.target_cluster_id }}
+                                className="text-primary hover:underline"
+                              >
+                                {rec.target_cluster_name}
+                              </Link>
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">
-                            Move jobs from{" "}
+                        <span className="text-sm text-green-600 font-medium">{rec.estimated_savings}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-3">{rec.reason}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Users size={14} className="text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">{rec.job_count} jobs could be moved</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-3 px-4 font-medium text-sm">Source Cluster</th>
+                        <th className="text-left py-3 px-4 font-medium text-sm">Target Cluster</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm">Jobs</th>
+                        <th className="text-left py-3 px-4 font-medium text-sm">Reason</th>
+                        <th className="text-right py-3 px-4 font-medium text-sm">Savings</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobRecommendations.map((rec, idx) => (
+                        <tr key={idx} className="border-b hover:bg-muted/50 transition-colors">
+                          <td className="py-3 px-4">
                             <Link
                               to="/clusters/$clusterId"
                               params={{ clusterId: rec.source_cluster_id }}
-                              className="text-primary hover:underline"
+                              className="font-medium hover:text-primary"
                             >
                               {rec.source_cluster_name}
                             </Link>
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            Target:{" "}
+                          </td>
+                          <td className="py-3 px-4">
                             <Link
                               to="/clusters/$clusterId"
                               params={{ clusterId: rec.target_cluster_id }}
-                              className="text-primary hover:underline"
+                              className="hover:text-primary"
                             >
                               {rec.target_cluster_name}
                             </Link>
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-sm text-green-600 font-medium">{rec.estimated_savings}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-3">{rec.reason}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Users size={14} className="text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{rec.job_count} jobs could be moved</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">{rec.job_count}</td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground max-w-xs truncate">
+                            {rec.reason}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <span className="text-green-600 font-medium">{rec.estimated_savings}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <Play className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -772,9 +2311,14 @@ function OptimizationPage() {
 
         {activeTab === "schedule" && (
           <div className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Calendar className="h-5 w-5 text-purple-500" />
-              <h2 className="text-lg font-semibold">Schedule Optimization</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-purple-500" />
+                <h2 className="text-lg font-semibold">Schedule Optimization</h2>
+              </div>
+              {scheduleRecommendations && scheduleRecommendations.length > 0 && (
+                <ViewToggle view={scheduleView} onViewChange={setScheduleView} />
+              )}
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Recommendations to optimize auto-termination and idle time settings.
@@ -785,54 +2329,113 @@ function OptimizationPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : scheduleRecommendations && scheduleRecommendations.length > 0 ? (
-              <div className="space-y-4">
-                {scheduleRecommendations.map((rec, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 bg-muted/50 rounded-lg border border-transparent hover:border-primary/20 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                          <Clock className="h-5 w-5 text-purple-600" />
+              scheduleView === "cards" ? (
+                <div className="space-y-4">
+                  {scheduleRecommendations.map((rec, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 bg-muted/50 rounded-lg border border-transparent hover:border-primary/20 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                            <Clock className="h-5 w-5 text-purple-600" />
+                          </div>
+                          <div>
+                            <Link
+                              to="/clusters/$clusterId"
+                              params={{ clusterId: rec.cluster_id }}
+                              className="font-medium hover:text-primary"
+                            >
+                              {rec.cluster_name}
+                            </Link>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              Current auto-terminate:{" "}
+                              {rec.current_auto_terminate_minutes
+                                ? `${rec.current_auto_terminate_minutes} min`
+                                : "Not configured"}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <Link
-                            to="/clusters/$clusterId"
-                            params={{ clusterId: rec.cluster_id }}
-                            className="font-medium hover:text-primary"
-                          >
-                            {rec.cluster_name}
-                          </Link>
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            Current auto-terminate:{" "}
-                            {rec.current_auto_terminate_minutes
-                              ? `${rec.current_auto_terminate_minutes} min`
-                              : "Not configured"}
+                        <div className="text-right">
+                          <span className="text-sm text-green-600 font-medium">
+                            Recommended: {rec.recommended_auto_terminate_minutes} min
+                          </span>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            ~{formatNumber(rec.avg_idle_time_per_day_minutes, 0)} min idle/day
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-sm text-green-600 font-medium">
-                          Recommended: {rec.recommended_auto_terminate_minutes} min
-                        </span>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          ~{formatNumber(rec.avg_idle_time_per_day_minutes, 0)} min idle/day
-                        </p>
-                      </div>
+                      <p className="text-sm text-muted-foreground mt-3">{rec.reason}</p>
+                      {rec.peak_usage_hours && rec.peak_usage_hours.length > 0 && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Clock size={14} className="text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            Peak hours: {rec.peak_usage_hours.map((h) => `${h}:00`).join(", ")}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-3">{rec.reason}</p>
-                    {rec.peak_usage_hours && rec.peak_usage_hours.length > 0 && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <Clock size={14} className="text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          Peak hours: {rec.peak_usage_hours.map((h) => `${h}:00`).join(", ")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="text-left py-3 px-4 font-medium text-sm">Cluster</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm">Current</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm">Recommended</th>
+                        <th className="text-center py-3 px-4 font-medium text-sm">Avg Idle/Day</th>
+                        <th className="text-left py-3 px-4 font-medium text-sm">Peak Hours</th>
+                        <th className="text-right py-3 px-4 font-medium text-sm"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scheduleRecommendations.map((rec, idx) => (
+                        <tr key={idx} className="border-b hover:bg-muted/50 transition-colors">
+                          <td className="py-3 px-4">
+                            <Link
+                              to="/clusters/$clusterId"
+                              params={{ clusterId: rec.cluster_id }}
+                              className="font-medium hover:text-primary"
+                            >
+                              {rec.cluster_name}
+                            </Link>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {rec.current_auto_terminate_minutes
+                              ? `${rec.current_auto_terminate_minutes} min`
+                              : <span className="text-muted-foreground">None</span>}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="text-green-600 font-medium">
+                              {rec.recommended_auto_terminate_minutes} min
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center text-muted-foreground">
+                            {formatNumber(rec.avg_idle_time_per_day_minutes, 0)} min
+                          </td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground">
+                            {rec.peak_usage_hours && rec.peak_usage_hours.length > 0
+                              ? rec.peak_usage_hours.map((h) => `${h}:00`).join(", ")
+                              : "-"}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <Link
+                              to="/clusters/$clusterId"
+                              params={{ clusterId: rec.cluster_id }}
+                              className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
+                            >
+                              <ArrowRight size={16} />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
