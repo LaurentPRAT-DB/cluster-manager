@@ -21,22 +21,38 @@ from ..models import (
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
 
-def _execute_sql(ws, warehouse_id: str, sql: str) -> list[dict]:
+def _execute_sql(ws, warehouse_id: str, sql: str, timeout: str = "60s") -> list[dict]:
     """Execute a SQL statement and return results as a list of dicts."""
-    logger.info(f"Executing SQL: {sql[:100]}...")
+    logger.info(f"Executing SQL on warehouse {warehouse_id}: {sql[:100]}...")
 
-    response = ws.statement_execution.execute_statement(
-        warehouse_id=warehouse_id,
-        statement=sql,
-        format=Format.JSON_ARRAY,
-        disposition=Disposition.INLINE,
-        wait_timeout="30s",
-    )
+    try:
+        response = ws.statement_execution.execute_statement(
+            warehouse_id=warehouse_id,
+            statement=sql,
+            format=Format.JSON_ARRAY,
+            disposition=Disposition.INLINE,
+            wait_timeout=timeout,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"SQL execution error: {error_msg}")
+        if "WAREHOUSE" in error_msg.upper() or "timeout" in error_msg.lower():
+            raise HTTPException(
+                status_code=503,
+                detail=f"SQL warehouse unavailable or starting. Please try again in a moment. Error: {error_msg}"
+            )
+        raise HTTPException(status_code=500, detail=f"SQL execution error: {error_msg}")
 
     if response.status.state == StatementState.FAILED:
         error_msg = response.status.error.message if response.status.error else "Unknown error"
         logger.error(f"SQL execution failed: {error_msg}")
         raise HTTPException(status_code=500, detail=f"SQL execution failed: {error_msg}")
+
+    if response.status.state == StatementState.PENDING or response.status.state == StatementState.RUNNING:
+        raise HTTPException(
+            status_code=503,
+            detail="SQL query timed out. The warehouse may be starting. Please try again."
+        )
 
     if response.status.state != StatementState.SUCCEEDED:
         raise HTTPException(
