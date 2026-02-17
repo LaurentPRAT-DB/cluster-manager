@@ -77,22 +77,59 @@ def _execute_sql(ws, warehouse_id: str, sql: str, timeout: str = "60s") -> list[
     return results
 
 
+def _is_serverless(wh) -> bool:
+    """Check if a warehouse is serverless."""
+    # Check enable_serverless_compute flag
+    if getattr(wh, 'enable_serverless_compute', False):
+        return True
+    # Check warehouse_type (PRO warehouses are serverless-capable)
+    wh_type = getattr(wh, 'warehouse_type', None)
+    if wh_type and str(wh_type.value).upper() == "PRO":
+        return True
+    return False
+
+
 def _get_warehouse_id(ws, config) -> str:
-    """Get SQL warehouse ID from config or find a suitable one."""
+    """Get SQL warehouse ID from config or find a suitable one.
+
+    Priority:
+    1. Configured warehouse ID
+    2. Running serverless warehouse (instant)
+    3. Running regular warehouse
+    4. Stopped serverless warehouse (starts quickly)
+    5. Any available warehouse (may need to wait for startup)
+    """
     if config.sql_warehouse_id:
         return config.sql_warehouse_id
 
-    # Try to find a running warehouse
     warehouses = list(ws.warehouses.list())
-    for wh in warehouses:
+
+    serverless_warehouses = [wh for wh in warehouses if _is_serverless(wh)]
+    regular_warehouses = [wh for wh in warehouses if not _is_serverless(wh)]
+
+    # 1. Try running serverless warehouse first (best option)
+    for wh in serverless_warehouses:
         if wh.state and wh.state.value == "RUNNING":
-            logger.info(f"Using warehouse: {wh.name} ({wh.id})")
+            logger.info(f"Using running serverless warehouse: {wh.name} ({wh.id})")
             return wh.id
 
-    # Fall back to first available
+    # 2. Try any running warehouse
+    for wh in regular_warehouses:
+        if wh.state and wh.state.value == "RUNNING":
+            logger.info(f"Using running warehouse: {wh.name} ({wh.id})")
+            return wh.id
+
+    # 3. Try stopped serverless warehouse (starts quickly)
+    for wh in serverless_warehouses:
+        if wh.state and wh.state.value in ("STOPPED", "STOPPING"):
+            logger.info(f"Using serverless warehouse (will auto-start): {wh.name} ({wh.id})")
+            return wh.id
+
+    # 4. Fall back to any available warehouse
     if warehouses:
-        logger.info(f"Using warehouse: {warehouses[0].name} ({warehouses[0].id})")
-        return warehouses[0].id
+        wh = warehouses[0]
+        logger.info(f"Using warehouse (may need startup): {wh.name} ({wh.id})")
+        return wh.id
 
     raise HTTPException(
         status_code=500,
