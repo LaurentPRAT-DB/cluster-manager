@@ -6,7 +6,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  ChevronRight,
   Clock,
   Grid3X3,
   List,
@@ -30,6 +29,7 @@ import {
   useStopCluster,
 } from "@/lib/api";
 import { cn, formatDuration, formatNumber } from "@/lib/utils";
+import { ClusterActionsDropdown } from "@/components/clusters/cluster-actions-dropdown";
 
 // Search params validation
 interface ClusterSearchParams {
@@ -205,13 +205,10 @@ function ClusterCard({ cluster }: { cluster: ClusterSummary }) {
             )}
             Stop
           </button>
-          <Link
-            to="/clusters/$clusterId"
-            params={{ clusterId: cluster.cluster_id }}
-            className="p-1.5 rounded-md hover:bg-muted transition-colors"
-          >
-            <ChevronRight size={18} />
-          </Link>
+          <ClusterActionsDropdown
+            clusterId={cluster.cluster_id}
+            clusterType={cluster.cluster_source || undefined}
+          />
         </div>
       </div>
     </div>
@@ -323,14 +320,10 @@ function ClusterTableRow({ cluster }: { cluster: ClusterSummary }) {
               <Square size={16} />
             )}
           </button>
-          <Link
-            to="/clusters/$clusterId"
-            params={{ clusterId: cluster.cluster_id }}
-            title="View details"
-            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <ChevronRight size={16} />
-          </Link>
+          <ClusterActionsDropdown
+            clusterId={cluster.cluster_id}
+            clusterType={cluster.cluster_source || undefined}
+          />
         </div>
       </td>
     </tr>

@@ -13,7 +13,6 @@ import { Route as SidebarRouteImport } from './routes/_sidebar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SidebarPoliciesRouteImport } from './routes/_sidebar/policies'
 import { Route as SidebarOptimizationRouteImport } from './routes/_sidebar/optimization'
-import { Route as SidebarAnalyticsRouteImport } from './routes/_sidebar/analytics'
 import { Route as SidebarClustersIndexRouteImport } from './routes/_sidebar/clusters/index'
 import { Route as SidebarClustersClusterIdRouteImport } from './routes/_sidebar/clusters/$clusterId'
 
@@ -36,11 +35,6 @@ const SidebarOptimizationRoute = SidebarOptimizationRouteImport.update({
   path: '/optimization',
   getParentRoute: () => SidebarRoute,
 } as any)
-const SidebarAnalyticsRoute = SidebarAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => SidebarRoute,
-} as any)
 const SidebarClustersIndexRoute = SidebarClustersIndexRouteImport.update({
   id: '/clusters/',
   path: '/clusters/',
@@ -55,7 +49,6 @@ const SidebarClustersClusterIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/analytics': typeof SidebarAnalyticsRoute
   '/optimization': typeof SidebarOptimizationRoute
   '/policies': typeof SidebarPoliciesRoute
   '/clusters/$clusterId': typeof SidebarClustersClusterIdRoute
@@ -63,7 +56,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/analytics': typeof SidebarAnalyticsRoute
   '/optimization': typeof SidebarOptimizationRoute
   '/policies': typeof SidebarPoliciesRoute
   '/clusters/$clusterId': typeof SidebarClustersClusterIdRoute
@@ -73,7 +65,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_sidebar': typeof SidebarRouteWithChildren
-  '/_sidebar/analytics': typeof SidebarAnalyticsRoute
   '/_sidebar/optimization': typeof SidebarOptimizationRoute
   '/_sidebar/policies': typeof SidebarPoliciesRoute
   '/_sidebar/clusters/$clusterId': typeof SidebarClustersClusterIdRoute
@@ -83,24 +74,16 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/analytics'
     | '/optimization'
     | '/policies'
     | '/clusters/$clusterId'
     | '/clusters/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/analytics'
-    | '/optimization'
-    | '/policies'
-    | '/clusters/$clusterId'
-    | '/clusters'
+  to: '/' | '/optimization' | '/policies' | '/clusters/$clusterId' | '/clusters'
   id:
     | '__root__'
     | '/'
     | '/_sidebar'
-    | '/_sidebar/analytics'
     | '/_sidebar/optimization'
     | '/_sidebar/policies'
     | '/_sidebar/clusters/$clusterId'
@@ -142,13 +125,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SidebarOptimizationRouteImport
       parentRoute: typeof SidebarRoute
     }
-    '/_sidebar/analytics': {
-      id: '/_sidebar/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof SidebarAnalyticsRouteImport
-      parentRoute: typeof SidebarRoute
-    }
     '/_sidebar/clusters/': {
       id: '/_sidebar/clusters/'
       path: '/clusters'
@@ -167,7 +143,6 @@ declare module '@tanstack/react-router' {
 }
 
 interface SidebarRouteChildren {
-  SidebarAnalyticsRoute: typeof SidebarAnalyticsRoute
   SidebarOptimizationRoute: typeof SidebarOptimizationRoute
   SidebarPoliciesRoute: typeof SidebarPoliciesRoute
   SidebarClustersClusterIdRoute: typeof SidebarClustersClusterIdRoute
@@ -175,7 +150,6 @@ interface SidebarRouteChildren {
 }
 
 const SidebarRouteChildren: SidebarRouteChildren = {
-  SidebarAnalyticsRoute: SidebarAnalyticsRoute,
   SidebarOptimizationRoute: SidebarOptimizationRoute,
   SidebarPoliciesRoute: SidebarPoliciesRoute,
   SidebarClustersClusterIdRoute: SidebarClustersClusterIdRoute,
