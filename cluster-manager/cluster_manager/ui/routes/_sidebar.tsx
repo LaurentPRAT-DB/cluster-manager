@@ -102,7 +102,10 @@ function SidebarLayout() {
 
         {/* Footer */}
         <div className="p-2 border-t border-sidebar-border">
-          <div className={cn("flex", collapsed ? "justify-center" : "justify-end")}>
+          <div className={cn("flex items-center", collapsed ? "justify-center" : "justify-between")}>
+            {!collapsed && (
+              <span className="text-xs text-muted-foreground">v1.1.0</span>
+            )}
             <ThemeToggle />
           </div>
         </div>
