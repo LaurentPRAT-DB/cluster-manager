@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { ExternalLink, FileText, MoreVertical, Settings, Zap } from "lucide-react";
 import { useWorkspaceInfo } from "../../lib/api";
 import {
@@ -14,6 +14,7 @@ interface ClusterActionsDropdownProps {
 
 export function ClusterActionsDropdown({ clusterId }: ClusterActionsDropdownProps) {
   const { data: workspaceInfo } = useWorkspaceInfo();
+  const navigate = useNavigate();
 
   // Construct Databricks workspace URLs using the hash-based routing format
   const workspaceHost = workspaceInfo?.host || "";
@@ -34,12 +35,16 @@ export function ClusterActionsDropdown({ clusterId }: ClusterActionsDropdownProp
     ? `${workspaceHost}/#setting/clusters/${clusterId}/metrics`
     : null;
 
+  const handleViewInApp = () => {
+    navigate({ to: "/clusters/$clusterId", params: { clusterId } });
+  };
+
   return (
     <DropdownMenu trigger={<MoreVertical size={16} />}>
       <DropdownMenuLabel>View in App</DropdownMenuLabel>
-      <Link to="/clusters/$clusterId" params={{ clusterId }} className="block">
-        <DropdownMenuItem icon={<Settings size={14} />}>Cluster Details</DropdownMenuItem>
-      </Link>
+      <DropdownMenuItem icon={<Settings size={14} />} onClick={handleViewInApp}>
+        Cluster Details
+      </DropdownMenuItem>
 
       <DropdownMenuSeparator />
       <DropdownMenuLabel>Open in Databricks</DropdownMenuLabel>
