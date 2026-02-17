@@ -412,47 +412,123 @@ def get_job_recommendations(
     ws: Dependency.Client,
     config: Dependency.Config,
 ) -> list[JobClusterRecommendation]:
-    """Get recommendations for moving jobs to oversized clusters.
+    """Get recommendations for optimizing cluster usage patterns.
 
-    Identifies small job clusters that could use larger, underutilized clusters.
+    Identifies opportunities to:
+    1. Consolidate clusters from the same user
+    2. Convert always-on clusters to job clusters
+    3. Use serverless compute for sporadic workloads
     """
     logger.info("Getting job cluster recommendations")
 
     clusters = _list_clusters_limited(ws, limit=100)
     recommendations = []
 
-    # Find large interactive clusters (potential targets)
-    large_clusters = []
-    small_job_clusters = []
+    # Group clusters by creator
+    clusters_by_user: dict[str, list] = {}
+    large_interactive = []
+    always_on_clusters = []
 
     for cluster in clusters:
-        cluster_type = _classify_cluster(cluster)
+        creator = cluster.creator_user_name or "unknown"
+        if creator not in clusters_by_user:
+            clusters_by_user[creator] = []
+        clusters_by_user[creator].append(cluster)
+
         workers = cluster.num_workers or 0
         if cluster.autoscale:
             workers = (cluster.autoscale.min_workers + cluster.autoscale.max_workers) // 2
 
-        if cluster_type == ClusterType.INTERACTIVE and workers >= 10:
-            large_clusters.append(cluster)
-        elif cluster_type == ClusterType.JOB and workers < 5:
-            small_job_clusters.append(cluster)
+        cluster_type = _classify_cluster(cluster)
 
-    # Generate recommendations
-    for target in large_clusters[:3]:  # Top 3 large clusters
-        target_workers = target.num_workers or 0
-        if target.autoscale:
-            target_workers = (target.autoscale.min_workers + target.autoscale.max_workers) // 2
+        # Track large interactive clusters
+        if cluster_type == ClusterType.INTERACTIVE and workers >= 4:
+            large_interactive.append(cluster)
 
-        matching_jobs = [c for c in small_job_clusters[:5]]  # First 5 small job clusters
-        if matching_jobs:
-            recommendations.append(JobClusterRecommendation(
-                source_cluster_id=matching_jobs[0].cluster_id,
-                source_cluster_name=matching_jobs[0].cluster_name or "Unnamed",
-                target_cluster_id=target.cluster_id,
-                target_cluster_name=target.cluster_name or "Unnamed",
-                job_count=len(matching_jobs),
-                reason=f"Target cluster has {target_workers} workers with capacity to spare",
-                estimated_savings="$50-200/month by consolidating job clusters",
-            ))
+        # Track clusters without auto-termination (always-on risk)
+        auto_terminate = getattr(cluster, 'autotermination_minutes', None)
+        if auto_terminate is None or auto_terminate == 0:
+            if cluster.state == State.RUNNING and workers >= 2:
+                always_on_clusters.append(cluster)
+
+    # Recommendation 1: Users with multiple clusters could consolidate
+    for user, user_clusters in clusters_by_user.items():
+        if len(user_clusters) >= 3:
+            # User has 3+ clusters - recommend consolidation
+            running = [c for c in user_clusters if c.state == State.RUNNING]
+            terminated = [c for c in user_clusters if c.state == State.TERMINATED]
+
+            if len(running) >= 2:
+                # Multiple running clusters from same user
+                source = running[0]
+                target = running[1]
+                recommendations.append(JobClusterRecommendation(
+                    source_cluster_id=source.cluster_id,
+                    source_cluster_name=source.cluster_name or "Unnamed",
+                    target_cluster_id=target.cluster_id,
+                    target_cluster_name=target.cluster_name or "Unnamed",
+                    job_count=len(running),
+                    reason=f"User {user.split('@')[0]} has {len(running)} running clusters. Consider consolidating workloads.",
+                    estimated_savings="$100-500/month by reducing duplicate clusters",
+                ))
+            elif terminated and running:
+                # Mix of running and terminated - recommend cleanup
+                source = terminated[0]
+                target = running[0]
+                recommendations.append(JobClusterRecommendation(
+                    source_cluster_id=source.cluster_id,
+                    source_cluster_name=source.cluster_name or "Unnamed",
+                    target_cluster_id=target.cluster_id,
+                    target_cluster_name=target.cluster_name or "Unnamed",
+                    job_count=len(terminated),
+                    reason=f"User has {len(terminated)} terminated clusters that could be cleaned up or consolidated.",
+                    estimated_savings="Simplified management, reduced clutter",
+                ))
+
+        if len(recommendations) >= 5:
+            break
+
+    # Recommendation 2: Always-on clusters should use job clusters
+    for cluster in always_on_clusters[:3]:
+        if len(recommendations) >= 8:
+            break
+
+        workers = cluster.num_workers or 0
+        if cluster.autoscale:
+            workers = (cluster.autoscale.min_workers + cluster.autoscale.max_workers) // 2
+
+        # Estimate monthly cost for always-on
+        monthly_dbu = (workers + 1) * 24 * 30  # DBUs per month
+        monthly_cost = monthly_dbu * 0.15  # Rough estimate
+
+        recommendations.append(JobClusterRecommendation(
+            source_cluster_id=cluster.cluster_id,
+            source_cluster_name=cluster.cluster_name or "Unnamed",
+            target_cluster_id=cluster.cluster_id,
+            target_cluster_name="Serverless or Job Cluster",
+            job_count=1,
+            reason=f"Running 24/7 without auto-terminate (~${monthly_cost:.0f}/mo). Consider serverless or job clusters for workloads.",
+            estimated_savings=f"Up to ${monthly_cost * 0.7:.0f}/month with on-demand compute",
+        ))
+
+    # Recommendation 3: Similar clusters that could be shared
+    if len(recommendations) < 5 and len(large_interactive) >= 2:
+        # Find clusters with similar configurations
+        for i, c1 in enumerate(large_interactive[:5]):
+            if len(recommendations) >= 8:
+                break
+            for c2 in large_interactive[i + 1:6]:
+                if c1.node_type_id == c2.node_type_id and c1.spark_version == c2.spark_version:
+                    recommendations.append(JobClusterRecommendation(
+                        source_cluster_id=c1.cluster_id,
+                        source_cluster_name=c1.cluster_name or "Unnamed",
+                        target_cluster_id=c2.cluster_id,
+                        target_cluster_name=c2.cluster_name or "Unnamed",
+                        job_count=2,
+                        reason=f"Similar config (same node type & runtime). Consider sharing one cluster.",
+                        estimated_savings="$50-300/month by sharing resources",
+                    ))
+                    break
 
     logger.info(f"Generated {len(recommendations)} job recommendations")
     return recommendations
