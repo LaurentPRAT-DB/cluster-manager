@@ -503,12 +503,6 @@ function ClustersPage() {
     return map;
   }, [policies]);
 
-  // Get the selected policy name
-  const selectedPolicy = useMemo(() => {
-    if (!policyFilter || !policies) return null;
-    return policies.find((p) => p.policy_id === policyFilter);
-  }, [policyFilter, policies]);
-
   // Filter clusters by policy if a policy filter is active
   const filteredClusters = useMemo(() => {
     if (!clusters) return [];
@@ -546,6 +540,28 @@ function ClustersPage() {
           <p className="text-muted-foreground">Manage and monitor your Databricks clusters</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Policy Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <Shield size={16} className="text-muted-foreground" />
+            <select
+              value={policyFilter || ""}
+              onChange={(e) => {
+                if (e.target.value) {
+                  navigate({ to: "/clusters", search: { policy: e.target.value } });
+                } else {
+                  navigate({ to: "/clusters", search: {} });
+                }
+              }}
+              className="h-9 px-3 text-sm bg-secondary border-0 rounded-lg focus:ring-2 focus:ring-primary/20 cursor-pointer"
+            >
+              <option value="">All policies</option>
+              {policies?.map((policy) => (
+                <option key={policy.policy_id} value={policy.policy_id}>
+                  {policy.name}
+                </option>
+              ))}
+            </select>
+          </div>
           {/* View Toggle */}
           <div className="flex items-center bg-muted rounded-lg p-1">
             <button
@@ -582,30 +598,6 @@ function ClustersPage() {
           </button>
         </div>
       </div>
-
-      {/* Policy Filter Banner */}
-      {selectedPolicy && (
-        <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Shield className="h-5 w-5 text-primary" />
-            <div>
-              <p className="text-sm font-medium">
-                Filtered by policy: <span className="text-primary">{selectedPolicy.name}</span>
-              </p>
-              {selectedPolicy.description && (
-                <p className="text-xs text-muted-foreground mt-0.5">{selectedPolicy.description}</p>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={clearPolicyFilter}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-background hover:bg-muted rounded-md transition-colors"
-          >
-            <X size={14} />
-            Clear filter
-          </button>
-        </div>
-      )}
 
       {/* Metrics Summary */}
       {metrics && (
