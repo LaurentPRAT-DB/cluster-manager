@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   ChevronRight,
   Clock,
   Grid3X3,
@@ -326,25 +329,133 @@ function ClusterTableRow({ cluster }: { cluster: ClusterSummary }) {
   );
 }
 
+type SortColumn = "name" | "state" | "creator" | "workers" | "uptime" | "dbu" | "runtime";
+type SortDirection = "asc" | "desc";
+
+interface SortState {
+  column: SortColumn;
+  direction: SortDirection;
+}
+
+function SortableHeader({
+  column,
+  label,
+  currentSort,
+  onSort,
+  align = "left",
+}: {
+  column: SortColumn;
+  label: string;
+  currentSort: SortState;
+  onSort: (column: SortColumn) => void;
+  align?: "left" | "center";
+}) {
+  const isActive = currentSort.column === column;
+
+  return (
+    <th
+      className={cn(
+        "py-3 px-4 font-medium text-sm cursor-pointer hover:bg-muted/80 transition-colors select-none",
+        align === "center" ? "text-center" : "text-left"
+      )}
+      onClick={() => onSort(column)}
+    >
+      <div className={cn("flex items-center gap-1", align === "center" && "justify-center")}>
+        <span>{label}</span>
+        {isActive ? (
+          currentSort.direction === "asc" ? (
+            <ArrowUp size={14} className="text-primary" />
+          ) : (
+            <ArrowDown size={14} className="text-primary" />
+          )
+        ) : (
+          <ArrowUpDown size={14} className="text-muted-foreground/50" />
+        )}
+      </div>
+    </th>
+  );
+}
+
+function getWorkerCount(cluster: ClusterSummary): number {
+  if (cluster.autoscale) {
+    return (cluster.autoscale.min_workers + cluster.autoscale.max_workers) / 2;
+  }
+  return cluster.num_workers ?? 0;
+}
+
+const stateOrder: Record<string, number> = {
+  RUNNING: 0,
+  PENDING: 1,
+  RESTARTING: 2,
+  RESIZING: 3,
+  TERMINATING: 4,
+  TERMINATED: 5,
+  ERROR: 6,
+  UNKNOWN: 7,
+};
+
 function ClusterTable({ clusters }: { clusters: ClusterSummary[] }) {
+  const [sort, setSort] = useState<SortState>({ column: "state", direction: "asc" });
+
+  const handleSort = (column: SortColumn) => {
+    setSort((prev) => ({
+      column,
+      direction: prev.column === column && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const sortedClusters = useMemo(() => {
+    const sorted = [...clusters].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sort.column) {
+        case "name":
+          comparison = (a.cluster_name || "").localeCompare(b.cluster_name || "");
+          break;
+        case "state":
+          comparison = (stateOrder[a.state] ?? 99) - (stateOrder[b.state] ?? 99);
+          break;
+        case "creator":
+          comparison = (a.creator_user_name || "").localeCompare(b.creator_user_name || "");
+          break;
+        case "workers":
+          comparison = getWorkerCount(a) - getWorkerCount(b);
+          break;
+        case "uptime":
+          comparison = (a.uptime_minutes || 0) - (b.uptime_minutes || 0);
+          break;
+        case "dbu":
+          comparison = (a.estimated_dbu_per_hour || 0) - (b.estimated_dbu_per_hour || 0);
+          break;
+        case "runtime":
+          comparison = (a.spark_version || "").localeCompare(b.spark_version || "");
+          break;
+      }
+
+      return sort.direction === "asc" ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [clusters, sort]);
+
   return (
     <div className="bg-card rounded-lg border overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="text-left py-3 px-4 font-medium text-sm">Name</th>
-              <th className="text-left py-3 px-4 font-medium text-sm">Status</th>
-              <th className="text-left py-3 px-4 font-medium text-sm">Creator</th>
-              <th className="text-center py-3 px-4 font-medium text-sm">Workers</th>
-              <th className="text-center py-3 px-4 font-medium text-sm">Uptime</th>
-              <th className="text-center py-3 px-4 font-medium text-sm">DBU/h</th>
-              <th className="text-left py-3 px-4 font-medium text-sm">Runtime</th>
+              <SortableHeader column="name" label="Name" currentSort={sort} onSort={handleSort} />
+              <SortableHeader column="state" label="Status" currentSort={sort} onSort={handleSort} />
+              <SortableHeader column="creator" label="Creator" currentSort={sort} onSort={handleSort} />
+              <SortableHeader column="workers" label="Workers" currentSort={sort} onSort={handleSort} align="center" />
+              <SortableHeader column="uptime" label="Uptime" currentSort={sort} onSort={handleSort} align="center" />
+              <SortableHeader column="dbu" label="DBU/h" currentSort={sort} onSort={handleSort} align="center" />
+              <SortableHeader column="runtime" label="Runtime" currentSort={sort} onSort={handleSort} />
               <th className="text-left py-3 px-4 font-medium text-sm w-[100px]">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {clusters.map((cluster) => (
+            {sortedClusters.map((cluster) => (
               <ClusterTableRow key={cluster.cluster_id} cluster={cluster} />
             ))}
           </tbody>
