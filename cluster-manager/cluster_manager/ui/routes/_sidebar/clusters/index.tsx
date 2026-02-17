@@ -272,8 +272,17 @@ function ClusterTableRow({ cluster, policyMap }: { cluster: ClusterSummary; poli
       <td className="py-3 px-4 text-sm text-muted-foreground truncate max-w-[200px]">
         {cluster.creator_user_name || "-"}
       </td>
-      <td className="py-3 px-4 text-sm text-muted-foreground truncate max-w-[150px]">
-        {cluster.policy_id ? policyMap.get(cluster.policy_id) || "-" : "-"}
+      <td className="py-3 px-4 text-sm truncate max-w-[150px]">
+        {cluster.policy_id ? (
+          <Link
+            to="/policies"
+            className="text-muted-foreground hover:text-primary hover:underline"
+          >
+            {policyMap.get(cluster.policy_id) || "-"}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
       </td>
       <td className="py-3 px-4 text-sm text-center">
         {workersDisplay}
