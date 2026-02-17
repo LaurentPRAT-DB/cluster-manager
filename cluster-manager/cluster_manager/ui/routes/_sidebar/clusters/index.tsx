@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
   AlertCircle,
   ChevronRight,
   Clock,
+  Grid3X3,
+  List,
   Loader2,
   Play,
   RefreshCw,
@@ -204,7 +207,157 @@ function ClusterCard({ cluster }: { cluster: ClusterSummary }) {
   );
 }
 
+function ClusterTableRow({ cluster }: { cluster: ClusterSummary }) {
+  const startCluster = useStartCluster();
+  const stopCluster = useStopCluster();
+
+  const isRunning = cluster.state === "RUNNING";
+  const isTerminated = cluster.state === "TERMINATED";
+  const isTransitioning = ["PENDING", "RESTARTING", "RESIZING", "TERMINATING"].includes(
+    cluster.state
+  );
+
+  const handleStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startCluster.mutate(cluster.cluster_id, {
+      onSuccess: (data) => {
+        toast.success(data.message);
+      },
+      onError: (error) => {
+        toast.error(`Failed to start cluster: ${error.message}`);
+      },
+    });
+  };
+
+  const handleStop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    stopCluster.mutate(cluster.cluster_id, {
+      onSuccess: (data) => {
+        toast.success(data.message);
+      },
+      onError: (error) => {
+        toast.error(`Failed to stop cluster: ${error.message}`);
+      },
+    });
+  };
+
+  const workersDisplay = cluster.autoscale
+    ? `${cluster.autoscale.min_workers}-${cluster.autoscale.max_workers}`
+    : cluster.num_workers ?? 0;
+
+  return (
+    <tr className="border-b hover:bg-muted/50 transition-colors">
+      <td className="py-3 px-4">
+        <Link
+          to="/clusters/$clusterId"
+          params={{ clusterId: cluster.cluster_id }}
+          className="font-medium hover:text-primary"
+        >
+          {cluster.cluster_name}
+        </Link>
+      </td>
+      <td className="py-3 px-4">
+        <StatusBadge state={cluster.state} />
+      </td>
+      <td className="py-3 px-4 text-sm text-muted-foreground truncate max-w-[200px]">
+        {cluster.creator_user_name || "-"}
+      </td>
+      <td className="py-3 px-4 text-sm text-center">
+        {workersDisplay}
+      </td>
+      <td className="py-3 px-4 text-sm text-center">
+        {cluster.uptime_minutes > 0 ? formatDuration(cluster.uptime_minutes) : "-"}
+      </td>
+      <td className="py-3 px-4 text-sm text-center">
+        {cluster.estimated_dbu_per_hour > 0 ? formatNumber(cluster.estimated_dbu_per_hour) : "-"}
+      </td>
+      <td className="py-3 px-4 text-sm text-muted-foreground">
+        {cluster.spark_version?.split("-")[0] || "-"}
+      </td>
+      <td className="py-3 px-4">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleStart}
+            disabled={!isTerminated || startCluster.isPending}
+            title="Start cluster"
+            className={cn(
+              "p-1.5 rounded-md transition-colors",
+              isTerminated
+                ? "text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30"
+                : "text-muted-foreground/50 cursor-not-allowed"
+            )}
+          >
+            {startCluster.isPending ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Play size={16} />
+            )}
+          </button>
+          <button
+            onClick={handleStop}
+            disabled={!isRunning || isTransitioning || stopCluster.isPending}
+            title="Stop cluster"
+            className={cn(
+              "p-1.5 rounded-md transition-colors",
+              isRunning && !isTransitioning
+                ? "text-orange-600 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+                : "text-muted-foreground/50 cursor-not-allowed"
+            )}
+          >
+            {stopCluster.isPending ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Square size={16} />
+            )}
+          </button>
+          <Link
+            to="/clusters/$clusterId"
+            params={{ clusterId: cluster.cluster_id }}
+            title="View details"
+            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <ChevronRight size={16} />
+          </Link>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function ClusterTable({ clusters }: { clusters: ClusterSummary[] }) {
+  return (
+    <div className="bg-card rounded-lg border overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b bg-muted/50">
+              <th className="text-left py-3 px-4 font-medium text-sm">Name</th>
+              <th className="text-left py-3 px-4 font-medium text-sm">Status</th>
+              <th className="text-left py-3 px-4 font-medium text-sm">Creator</th>
+              <th className="text-center py-3 px-4 font-medium text-sm">Workers</th>
+              <th className="text-center py-3 px-4 font-medium text-sm">Uptime</th>
+              <th className="text-center py-3 px-4 font-medium text-sm">DBU/h</th>
+              <th className="text-left py-3 px-4 font-medium text-sm">Runtime</th>
+              <th className="text-left py-3 px-4 font-medium text-sm w-[100px]">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {clusters.map((cluster) => (
+              <ClusterTableRow key={cluster.cluster_id} cluster={cluster} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+type ViewMode = "grid" | "list";
+
 function ClustersPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const { data: clusters, isLoading, error, refetch } = useClusters();
   const { data: metrics } = useMetricsSummary();
 
@@ -233,13 +386,42 @@ function ClustersPage() {
           <h1 className="text-2xl font-bold">Clusters</h1>
           <p className="text-muted-foreground">Manage and monitor your Databricks clusters</p>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 rounded-lg transition-colors"
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View Toggle */}
+          <div className="flex items-center bg-muted rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("list")}
+              title="List view"
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                viewMode === "list"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <List size={18} />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              title="Grid view"
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                viewMode === "grid"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Grid3X3 size={18} />
+            </button>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-secondary hover:bg-secondary/80 rounded-lg transition-colors"
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Metrics Summary */}
@@ -270,17 +452,21 @@ function ClustersPage() {
         </div>
       )}
 
-      {/* Cluster Grid */}
+      {/* Cluster List/Grid */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : clusters && clusters.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clusters.map((cluster) => (
-            <ClusterCard key={cluster.cluster_id} cluster={cluster} />
-          ))}
-        </div>
+        viewMode === "list" ? (
+          <ClusterTable clusters={clusters} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {clusters.map((cluster) => (
+              <ClusterCard key={cluster.cluster_id} cluster={cluster} />
+            ))}
+          </div>
+        )
       ) : (
         <div className="text-center py-12">
           <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
