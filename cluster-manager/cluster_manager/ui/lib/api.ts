@@ -588,3 +588,17 @@ export function useNodeTypeRecommendations(includeNoIssues = false) {
     refetchInterval: 60000,
   });
 }
+
+// Workspace info
+export interface WorkspaceInfo {
+  host: string;
+  org_id: string | null;
+}
+
+export function useWorkspaceInfo() {
+  return useQuery({
+    queryKey: ["workspace-info"],
+    queryFn: () => fetchApi<WorkspaceInfo>("/api/workspace/info"),
+    staleTime: Infinity, // Workspace info doesn't change
+  });
+}

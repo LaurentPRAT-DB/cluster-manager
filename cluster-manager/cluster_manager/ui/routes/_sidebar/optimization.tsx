@@ -71,6 +71,7 @@ import {
   type SparkConfigSeverity,
 } from "@/lib/api";
 import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { ClusterActionsDropdown } from "@/components/clusters/cluster-actions-dropdown";
 
 function MetricCard({
   title,
@@ -948,13 +949,7 @@ function AutoscalingAnalysisListRow({ cluster }: { cluster: ClusterAutoscalingAn
         <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
       </td>
       <td className="py-3 px-4 text-right">
-        <Link
-          to="/clusters/$clusterId"
-          params={{ clusterId: cluster.cluster_id }}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
-        >
-          <ArrowRight size={16} />
-        </Link>
+        <ClusterActionsDropdown clusterId={cluster.cluster_id} />
       </td>
     </tr>
   );
@@ -1009,13 +1004,7 @@ function NodeTypeAnalysisListRow({ cluster }: { cluster: ClusterNodeTypeAnalysis
         <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
       </td>
       <td className="py-3 px-4 text-right">
-        <Link
-          to="/clusters/$clusterId"
-          params={{ clusterId: cluster.cluster_id }}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
-        >
-          <ArrowRight size={16} />
-        </Link>
+        <ClusterActionsDropdown clusterId={cluster.cluster_id} />
       </td>
     </tr>
   );
@@ -1068,13 +1057,7 @@ function CostAnalysisListRow({ cluster }: { cluster: ClusterCostAnalysis }) {
         <span className="text-green-600 font-medium">{cluster.total_potential_savings_percent}%</span>
       </td>
       <td className="py-3 px-4 text-right">
-        <Link
-          to="/clusters/$clusterId"
-          params={{ clusterId: cluster.cluster_id }}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
-        >
-          <ArrowRight size={16} />
-        </Link>
+        <ClusterActionsDropdown clusterId={cluster.cluster_id} />
       </td>
     </tr>
   );
@@ -1123,13 +1106,7 @@ function SparkConfigListRow({ cluster }: { cluster: ClusterSparkConfigAnalysis }
         </div>
       </td>
       <td className="py-3 px-4 text-right">
-        <Link
-          to="/clusters/$clusterId"
-          params={{ clusterId: cluster.cluster_id }}
-          className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
-        >
-          <ArrowRight size={16} />
-        </Link>
+        <ClusterActionsDropdown clusterId={cluster.cluster_id} />
       </td>
     </tr>
   );
@@ -2066,13 +2043,7 @@ function OptimizationPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <Link
-                            to="/clusters/$clusterId"
-                            params={{ clusterId: cluster.cluster_id }}
-                            className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
-                          >
-                            <ArrowRight size={16} />
-                          </Link>
+                          <ClusterActionsDropdown clusterId={cluster.cluster_id} />
                         </td>
                       </tr>
                     ))}
@@ -3201,13 +3172,7 @@ function OptimizationPage() {
                               : "-"}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <Link
-                              to="/clusters/$clusterId"
-                              params={{ clusterId: rec.cluster_id }}
-                              className="p-1.5 rounded-md hover:bg-muted transition-colors inline-flex"
-                            >
-                              <ArrowRight size={16} />
-                            </Link>
+                            <ClusterActionsDropdown clusterId={rec.cluster_id} />
                           </td>
                         </tr>
                       ))}

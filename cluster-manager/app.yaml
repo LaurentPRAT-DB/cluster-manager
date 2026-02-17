@@ -9,6 +9,8 @@ command:
 env:
   - name: CLUSTER_MANAGER_APP_NAME
     value: "Cluster Manager"
+  - name: DATABRICKS_HOST
+    value: "https://e2-demo-field-eng.cloud.databricks.com"
 
 # Request additional OAuth scopes for the user token
 user_api_scopes:

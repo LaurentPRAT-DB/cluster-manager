@@ -4,7 +4,7 @@ from databricks.sdk.service.iam import User as UserOut
 
 from .core import Dependency, create_app, create_router
 from .models import VersionOut
-from .routers import billing_router, clusters_router, metrics_router, optimization_router, policies_router
+from .routers import billing_router, clusters_router, metrics_router, optimization_router, policies_router, workspace_router
 
 # Create main router for basic endpoints
 main_router = create_router()
@@ -70,5 +70,6 @@ app = create_app(
         billing_router,
         policies_router,
         optimization_router,
+        workspace_router,
     ]
 )

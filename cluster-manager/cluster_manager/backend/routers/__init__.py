@@ -5,6 +5,7 @@ from .clusters import router as clusters_router
 from .metrics import router as metrics_router
 from .optimization import router as optimization_router
 from .policies import router as policies_router
+from .workspace import router as workspace_router
 
 __all__ = [
     "clusters_router",
@@ -12,4 +13,5 @@ __all__ = [
     "billing_router",
     "policies_router",
     "optimization_router",
+    "workspace_router",
 ]

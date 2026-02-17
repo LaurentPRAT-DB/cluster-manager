@@ -118,6 +118,14 @@ async def _default_lifespan(app: FastAPI):
     logger.info(f"Starting app with configuration:\n{config}")
     ws = WorkspaceClient()
 
+    # Log workspace client configuration for debugging
+    logger.info(f"WorkspaceClient config.host: {ws.config.host}")
+    logger.info(f"WorkspaceClient config.auth_type: {ws.config.auth_type}")
+
+    # Log DATABRICKS environment variables
+    databricks_env = {k: v for k, v in os.environ.items() if "DATABRICKS" in k and "TOKEN" not in k and "SECRET" not in k}
+    logger.info(f"DATABRICKS environment variables: {databricks_env}")
+
     app.state.config = config
     app.state.workspace_client = ws
 
