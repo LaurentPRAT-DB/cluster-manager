@@ -27,6 +27,7 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 import {
@@ -1282,6 +1283,12 @@ function OptimizationPage() {
     direction: "desc",
   });
 
+  // Filter states for each tab
+  const [nodeTypeFilter, setNodeTypeFilter] = useState<{ type: "issue" | "category"; value: string } | null>(null);
+  const [costFilter, setCostFilter] = useState<{ type: "category"; value: string } | null>(null);
+  const [autoscalingFilter, setAutoscalingFilter] = useState<{ type: "issue"; value: string } | null>(null);
+  const [sparkConfigFilter, setSparkConfigFilter] = useState<{ type: "impact" | "severity"; value: string } | null>(null);
+
   const handleOversizedSort = (field: SortField) => {
     setOversizedSort((prev) => ({
       field,
@@ -1364,10 +1371,26 @@ function OptimizationPage() {
     }));
   };
 
-  // Sorted data for Spark Config
+  // Filtered and sorted data for Spark Config
   const sortedSparkConfigData = useMemo(() => {
     if (!sparkConfigData) return [];
-    return [...sparkConfigData].sort((a, b) => {
+
+    // Apply filter first
+    let filtered = [...sparkConfigData];
+    if (sparkConfigFilter) {
+      if (sparkConfigFilter.type === "impact") {
+        filtered = filtered.filter((c) =>
+          c.recommendations.some((r) => r.impact === sparkConfigFilter.value)
+        );
+      } else if (sparkConfigFilter.type === "severity") {
+        filtered = filtered.filter((c) =>
+          c.recommendations.some((r) => r.severity === sparkConfigFilter.value)
+        );
+      }
+    }
+
+    // Then sort
+    return filtered.sort((a, b) => {
       const { field, direction } = sparkConfigSort;
       let comparison = 0;
       switch (field) {
@@ -1389,12 +1412,24 @@ function OptimizationPage() {
       }
       return direction === "asc" ? comparison : -comparison;
     });
-  }, [sparkConfigData, sparkConfigSort]);
+  }, [sparkConfigData, sparkConfigSort, sparkConfigFilter]);
 
-  // Sorted data for Cost
+  // Filtered and sorted data for Cost
   const sortedCostData = useMemo(() => {
     if (!costData) return [];
-    return [...costData].sort((a, b) => {
+
+    // Apply filter first
+    let filtered = [...costData];
+    if (costFilter) {
+      if (costFilter.type === "category") {
+        filtered = filtered.filter((c) =>
+          c.recommendations.some((r) => r.category === costFilter.value)
+        );
+      }
+    }
+
+    // Then sort
+    return filtered.sort((a, b) => {
       const { field, direction } = costSort;
       let comparison = 0;
       switch (field) {
@@ -1422,12 +1457,24 @@ function OptimizationPage() {
       }
       return direction === "asc" ? comparison : -comparison;
     });
-  }, [costData, costSort]);
+  }, [costData, costSort, costFilter]);
 
-  // Sorted data for Autoscaling
+  // Filtered and sorted data for Autoscaling
   const sortedAutoscalingData = useMemo(() => {
     if (!autoscalingData) return [];
-    return [...autoscalingData].sort((a, b) => {
+
+    // Apply filter first
+    let filtered = [...autoscalingData];
+    if (autoscalingFilter) {
+      if (autoscalingFilter.type === "issue") {
+        filtered = filtered.filter((c) =>
+          c.recommendations.some((r) => r.issue_type === autoscalingFilter.value)
+        );
+      }
+    }
+
+    // Then sort
+    return filtered.sort((a, b) => {
       const { field, direction } = autoscalingSort;
       let comparison = 0;
       switch (field) {
@@ -1455,12 +1502,26 @@ function OptimizationPage() {
       }
       return direction === "asc" ? comparison : -comparison;
     });
-  }, [autoscalingData, autoscalingSort]);
+  }, [autoscalingData, autoscalingSort, autoscalingFilter]);
 
-  // Sorted data for Node Type
+  // Filtered and sorted data for Node Type
   const sortedNodeTypeData = useMemo(() => {
     if (!nodeTypeData) return [];
-    return [...nodeTypeData].sort((a, b) => {
+
+    // Apply filter first
+    let filtered = [...nodeTypeData];
+    if (nodeTypeFilter) {
+      if (nodeTypeFilter.type === "issue") {
+        filtered = filtered.filter((c) =>
+          c.recommendations.some((r) => r.issue_type === nodeTypeFilter.value)
+        );
+      } else if (nodeTypeFilter.type === "category") {
+        filtered = filtered.filter((c) => c.worker_node_category === nodeTypeFilter.value);
+      }
+    }
+
+    // Then sort
+    return filtered.sort((a, b) => {
       const { field, direction } = nodeTypeSort;
       let comparison = 0;
       switch (field) {
@@ -1488,7 +1549,7 @@ function OptimizationPage() {
       }
       return direction === "asc" ? comparison : -comparison;
     });
-  }, [nodeTypeData, nodeTypeSort]);
+  }, [nodeTypeData, nodeTypeSort, nodeTypeFilter]);
 
   // Sorted data for Jobs
   const sortedJobRecommendations = useMemo(() => {
@@ -2078,9 +2139,74 @@ function OptimizationPage() {
                   </div>
                 </div>
 
+                {/* Impact Type Distribution - Clickable to filter */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { type: "performance", label: "Performance", icon: Zap },
+                    { type: "cost", label: "Cost", icon: DollarSign },
+                    { type: "reliability", label: "Reliability", icon: CheckCircle },
+                    { type: "memory", label: "Memory", icon: Cpu },
+                  ].map(({ type, label, icon: Icon }) => {
+                    const count = sparkConfigData.reduce(
+                      (sum, c) => sum + c.recommendations.filter((r) => r.impact === type).length,
+                      0
+                    );
+                    const isActive = sparkConfigFilter?.type === "impact" && sparkConfigFilter?.value === type;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          if (isActive) {
+                            setSparkConfigFilter(null);
+                          } else if (count > 0) {
+                            setSparkConfigFilter({ type: "impact", value: type });
+                          }
+                        }}
+                        disabled={count === 0 && !isActive}
+                        className={cn(
+                          "bg-muted/30 rounded-lg p-3 text-center transition-all",
+                          count > 0 && "hover:bg-muted/50 cursor-pointer",
+                          count === 0 && "opacity-50 cursor-not-allowed",
+                          isActive && "ring-2 ring-primary bg-primary/10"
+                        )}
+                      >
+                        <Icon size={16} className={cn("mx-auto mb-1", isActive ? "text-primary" : "text-muted-foreground")} />
+                        <p className="text-lg font-semibold">{count}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Filter Indicator */}
+                {sparkConfigFilter && (
+                  <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <span className="text-sm">
+                      Filtering by:{" "}
+                      <strong>
+                        {{
+                          performance: "Performance",
+                          cost: "Cost",
+                          reliability: "Reliability",
+                          memory: "Memory",
+                        }[sparkConfigFilter.value] || sparkConfigFilter.value}
+                      </strong>
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      ({sortedSparkConfigData.length} cluster{sortedSparkConfigData.length !== 1 ? "s" : ""})
+                    </span>
+                    <button
+                      onClick={() => setSparkConfigFilter(null)}
+                      className="ml-auto p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
                 {/* Cluster Cards or List */}
                 {sparkConfigView === "cards" ? (
-                  sparkConfigData.map((cluster) => (
+                  sortedSparkConfigData.map((cluster) => (
                     <SparkConfigClusterCard key={cluster.cluster_id} cluster={cluster} />
                   ))
                 ) : (
@@ -2203,9 +2329,76 @@ function OptimizationPage() {
                   </div>
                 </div>
 
+                {/* Category Distribution - Clickable to filter */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  {[
+                    { type: "spot_instances", label: "Spot Instances", icon: Zap },
+                    { type: "node_type", label: "Node Type", icon: Server },
+                    { type: "storage", label: "Storage", icon: HardDrive },
+                    { type: "autoscaling", label: "Autoscaling", icon: TrendingUp },
+                    { type: "serverless", label: "Serverless", icon: Cloud },
+                  ].map(({ type, label, icon: Icon }) => {
+                    const count = costData.reduce(
+                      (sum, c) => sum + c.recommendations.filter((r) => r.category === type).length,
+                      0
+                    );
+                    const isActive = costFilter?.type === "category" && costFilter?.value === type;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          if (isActive) {
+                            setCostFilter(null);
+                          } else if (count > 0) {
+                            setCostFilter({ type: "category", value: type });
+                          }
+                        }}
+                        disabled={count === 0 && !isActive}
+                        className={cn(
+                          "bg-muted/30 rounded-lg p-3 text-center transition-all",
+                          count > 0 && "hover:bg-muted/50 cursor-pointer",
+                          count === 0 && "opacity-50 cursor-not-allowed",
+                          isActive && "ring-2 ring-primary bg-primary/10"
+                        )}
+                      >
+                        <Icon size={16} className={cn("mx-auto mb-1", isActive ? "text-primary" : "text-muted-foreground")} />
+                        <p className="text-lg font-semibold">{count}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Filter Indicator */}
+                {costFilter && (
+                  <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <span className="text-sm">
+                      Filtering by:{" "}
+                      <strong>
+                        {{
+                          spot_instances: "Spot Instances",
+                          node_type: "Node Type",
+                          storage: "Storage",
+                          autoscaling: "Autoscaling",
+                          serverless: "Serverless",
+                        }[costFilter.value] || costFilter.value}
+                      </strong>
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      ({sortedCostData.length} cluster{sortedCostData.length !== 1 ? "s" : ""})
+                    </span>
+                    <button
+                      onClick={() => setCostFilter(null)}
+                      className="ml-auto p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
                 {/* Cluster Cards or List */}
                 {costView === "cards" ? (
-                  costData.map((cluster) => (
+                  sortedCostData.map((cluster) => (
                     <CostAnalysisClusterCard key={cluster.cluster_id} cluster={cluster} />
                   ))
                 ) : (
@@ -2342,7 +2535,7 @@ function OptimizationPage() {
                   </div>
                 </div>
 
-                {/* Issue Type Distribution */}
+                {/* Issue Type Distribution - Clickable to filter */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   {[
                     { type: "wide_range", label: "Wide Range", icon: TrendingUp },
@@ -2355,19 +2548,63 @@ function OptimizationPage() {
                       (sum, c) => sum + c.recommendations.filter((r) => r.issue_type === type).length,
                       0
                     );
+                    const isActive = autoscalingFilter?.type === "issue" && autoscalingFilter?.value === type;
                     return (
-                      <div key={type} className="bg-muted/30 rounded-lg p-3 text-center">
-                        <Icon size={16} className="mx-auto mb-1 text-muted-foreground" />
+                      <button
+                        key={type}
+                        onClick={() => {
+                          if (isActive) {
+                            setAutoscalingFilter(null);
+                          } else if (count > 0) {
+                            setAutoscalingFilter({ type: "issue", value: type });
+                          }
+                        }}
+                        disabled={count === 0 && !isActive}
+                        className={cn(
+                          "bg-muted/30 rounded-lg p-3 text-center transition-all",
+                          count > 0 && "hover:bg-muted/50 cursor-pointer",
+                          count === 0 && "opacity-50 cursor-not-allowed",
+                          isActive && "ring-2 ring-primary bg-primary/10"
+                        )}
+                      >
+                        <Icon size={16} className={cn("mx-auto mb-1", isActive ? "text-primary" : "text-muted-foreground")} />
                         <p className="text-lg font-semibold">{count}</p>
                         <p className="text-xs text-muted-foreground">{label}</p>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
 
+                {/* Active Filter Indicator */}
+                {autoscalingFilter && (
+                  <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <span className="text-sm">
+                      Filtering by:{" "}
+                      <strong>
+                        {{
+                          wide_range: "Wide Range",
+                          narrow_range: "Narrow Range",
+                          high_minimum: "High Minimum",
+                          no_autoscaling: "No Autoscaling",
+                          inefficient_range: "Inefficient",
+                        }[autoscalingFilter.value] || autoscalingFilter.value}
+                      </strong>
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      ({sortedAutoscalingData.length} cluster{sortedAutoscalingData.length !== 1 ? "s" : ""})
+                    </span>
+                    <button
+                      onClick={() => setAutoscalingFilter(null)}
+                      className="ml-auto p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
                 {/* Cluster Cards or List */}
                 {autoscalingView === "cards" ? (
-                  autoscalingData.map((cluster) => (
+                  sortedAutoscalingData.map((cluster) => (
                     <AutoscalingAnalysisClusterCard key={cluster.cluster_id} cluster={cluster} />
                   ))
                 ) : (
@@ -2504,7 +2741,7 @@ function OptimizationPage() {
                   </div>
                 </div>
 
-                {/* Issue Type Distribution */}
+                {/* Issue Type Distribution - Clickable to filter */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
                     { type: "oversized_driver", label: "Oversized Driver", icon: Server },
@@ -2516,36 +2753,102 @@ function OptimizationPage() {
                       (sum, c) => sum + c.recommendations.filter((r) => r.issue_type === type).length,
                       0
                     );
+                    const isActive = nodeTypeFilter?.type === "issue" && nodeTypeFilter?.value === type;
                     return (
-                      <div key={type} className="bg-muted/30 rounded-lg p-3 text-center">
-                        <Icon size={16} className="mx-auto mb-1 text-muted-foreground" />
+                      <button
+                        key={type}
+                        onClick={() => {
+                          if (isActive) {
+                            setNodeTypeFilter(null);
+                          } else if (count > 0) {
+                            setNodeTypeFilter({ type: "issue", value: type });
+                          }
+                        }}
+                        disabled={count === 0 && !isActive}
+                        className={cn(
+                          "bg-muted/30 rounded-lg p-3 text-center transition-all",
+                          count > 0 && "hover:bg-muted/50 cursor-pointer",
+                          count === 0 && "opacity-50 cursor-not-allowed",
+                          isActive && "ring-2 ring-primary bg-primary/10"
+                        )}
+                      >
+                        <Icon size={16} className={cn("mx-auto mb-1", isActive ? "text-primary" : "text-muted-foreground")} />
                         <p className="text-lg font-semibold">{count}</p>
                         <p className="text-xs text-muted-foreground">{label}</p>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
 
-                {/* Node Type Category Distribution */}
+                {/* Node Type Category Distribution - Clickable to filter */}
                 <div className="p-4 bg-muted/30 rounded-lg">
                   <p className="text-sm font-medium mb-3">Instance Category Distribution</p>
                   <div className="flex flex-wrap gap-3">
                     {["memory_optimized", "compute_optimized", "general_purpose", "gpu", "storage_optimized", "unknown"].map((cat) => {
                       const count = nodeTypeData.filter((c) => c.worker_node_category === cat).length;
                       if (count === 0) return null;
+                      const isActive = nodeTypeFilter?.type === "category" && nodeTypeFilter?.value === cat;
                       return (
-                        <div key={cat} className="flex items-center gap-2">
+                        <button
+                          key={cat}
+                          onClick={() => {
+                            if (isActive) {
+                              setNodeTypeFilter(null);
+                            } else {
+                              setNodeTypeFilter({ type: "category", value: cat });
+                            }
+                          }}
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-1 rounded-md transition-all hover:bg-muted/50 cursor-pointer",
+                            isActive && "ring-2 ring-primary bg-primary/10"
+                          )}
+                        >
                           <NodeTypeCategoryBadge category={cat as NodeTypeCategory} />
                           <span className="text-sm text-muted-foreground">{count}</span>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
                 </div>
 
+                {/* Active Filter Indicator */}
+                {nodeTypeFilter && (
+                  <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <span className="text-sm">
+                      Filtering by:{" "}
+                      <strong>
+                        {nodeTypeFilter.type === "issue"
+                          ? {
+                              oversized_driver: "Oversized Driver",
+                              gpu_underutilized: "GPU Underutilized",
+                              legacy_instance: "Legacy Instance",
+                              overprovisioned: "Overprovisioned",
+                            }[nodeTypeFilter.value] || nodeTypeFilter.value
+                          : {
+                              memory_optimized: "Memory Optimized",
+                              compute_optimized: "Compute Optimized",
+                              general_purpose: "General Purpose",
+                              gpu: "GPU",
+                              storage_optimized: "Storage Optimized",
+                              unknown: "Unknown",
+                            }[nodeTypeFilter.value] || nodeTypeFilter.value}
+                      </strong>
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      ({sortedNodeTypeData.length} cluster{sortedNodeTypeData.length !== 1 ? "s" : ""})
+                    </span>
+                    <button
+                      onClick={() => setNodeTypeFilter(null)}
+                      className="ml-auto p-1 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+
                 {/* Cluster Cards or List */}
                 {nodeTypeView === "cards" ? (
-                  nodeTypeData.map((cluster) => (
+                  sortedNodeTypeData.map((cluster) => (
                     <NodeTypeAnalysisClusterCard key={cluster.cluster_id} cluster={cluster} />
                   ))
                 ) : (
