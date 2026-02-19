@@ -489,6 +489,28 @@ def _format_termination_reason(reason) -> str | None:
     return " - ".join(parts) if parts else None
 ```
 
+### SDK Methods Return Generators
+
+Many Databricks SDK methods return generators (iterators), not objects with attributes:
+
+```python
+# WRONG - clusters.events() returns a generator, not an object
+events_response = ws.clusters.events(cluster_id=cluster_id, limit=limit)
+for event in events_response.events:  # AttributeError: 'generator' has no attribute 'events'
+
+# CORRECT - iterate directly over the generator
+events = []
+for i, event in enumerate(ws.clusters.events(cluster_id=cluster_id)):
+    if i >= limit:
+        break
+    events.append(event)
+```
+
+Common SDK methods that return generators:
+- `ws.clusters.events()` - yields ClusterEvent objects
+- `ws.clusters.list()` - yields ClusterDetails objects
+- `ws.jobs.list()` - yields BaseJob objects
+
 ### Back Button Navigation (React/TanStack Router)
 
 Don't hardcode back button destinations - use browser history for proper navigation:
