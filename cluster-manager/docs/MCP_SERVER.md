@@ -115,19 +115,28 @@ The fastest way to validate your MCP tools work correctly is through the Databri
 
 #### 4.2: Add the MCP Server
 
-1. Look at the **right sidebar** of the Playground
-2. Click the **MCP Servers** tab (icon looks like a plug/connection)
-3. Click the **+ Add MCP Server** button
-4. From the dropdown, select **Unity Catalog Connection**
-5. In the connection picker:
-   - Browse or search for `cluster_manager_mcp`
-   - Select it from the list
-6. Click **Add**
-7. **Verify**: The MCP server should now appear in the sidebar with a green status indicator
+1. In the Playground, click the **Tools** button in the toolbar to open the Add tools dialog
+
+   ![Add Tools Dialog](images/playground-add-tool-dialog.png)
+
+2. Click on the **MCP Servers** tab to see available MCP server options
+
+   ![MCP Servers Tab](images/playground-mcp-servers-tab.png)
+
+3. Under **External MCP Servers**, find the **Unity Catalog Connection** section
+4. Click the dropdown and search for `cluster_manager_mcp`
+
+   ![Connection Dropdown](images/playground-connection-dropdown.png)
+
+5. Select your connection from the list
+6. Click **Save** to add the MCP server
+7. **Verify**: The MCP server should now appear in the Tools panel
+
+   ![Tools Panel with MCP](images/playground-tools-dialog.png)
 
 #### 4.3: Verify Tools Are Loaded
 
-1. Click on `cluster_manager_mcp` in the sidebar to expand it
+1. Click on `cluster_manager_mcp` in the Tools panel to expand it
 2. You should see a list of available tools:
    - `list_clusters`
    - `get_cluster`
@@ -174,29 +183,14 @@ After submitting your question, observe the AI's response:
 
 #### 4.6: Example Successful Interaction
 
-Here's what a successful test looks like:
+Here's what a successful test looks like when you ask "What clusters are currently running in the workspace?":
 
-```
-YOU: "What clusters are currently running in the workspace?"
+![Successful Test Result](images/playground-test-result.png)
 
-AI RESPONSE:
-┌─────────────────────────────────────────────────────────────┐
-│ Using tool: list_clusters                                   │
-│ Arguments: {"state": "RUNNING"}                             │
-└─────────────────────────────────────────────────────────────┘
-
-There are 21 clusters currently running in the workspace:
-
-| Cluster Name       | Owner              | Uptime   | Node Type  |
-|--------------------|--------------------|----------|------------|
-| analytics-prod     | alice@company.com  | 4h 32m   | i3.xlarge  |
-| ml-training-01     | bob@company.com    | 12h 15m  | p3.2xlarge |
-| data-pipeline      | etl@company.com    | 2h 45m   | r5.4xlarge |
-| ...                | ...                | ...      | ...        |
-
-The clusters are sorted by uptime. The ml-training-01 cluster has been
-running the longest at 12 hours and 15 minutes.
-```
+The AI:
+1. Selects the correct tool (`list_clusters`)
+2. Passes appropriate arguments (`{"state": "RUNNING"}`)
+3. Returns a formatted table with cluster details including names, IDs, creators, uptime, and DBU/hr estimates
 
 #### 4.7: Test Each Tool
 
