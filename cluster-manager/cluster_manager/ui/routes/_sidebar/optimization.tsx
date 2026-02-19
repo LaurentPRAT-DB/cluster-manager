@@ -1260,6 +1260,7 @@ function OptimizationPage() {
   const [costFilter, setCostFilter] = useState<{ type: "category"; value: string } | null>(null);
   const [autoscalingFilter, setAutoscalingFilter] = useState<{ type: "issue"; value: string } | null>(null);
   const [sparkConfigFilter, setSparkConfigFilter] = useState<{ type: "impact" | "severity"; value: string } | null>(null);
+  const [jobsFilter, setJobsFilter] = useState<{ type: "target" | "reason"; value: string } | null>(null);
 
   const handleOversizedSort = (field: SortField) => {
     setOversizedSort((prev) => ({
@@ -1533,10 +1534,32 @@ function OptimizationPage() {
     });
   }, [nodeTypeData, nodeTypeSort, nodeTypeFilter]);
 
-  // Sorted data for Jobs
+  // Sorted and filtered data for Jobs
   const sortedJobRecommendations = useMemo(() => {
     if (!jobRecommendations) return [];
-    return [...jobRecommendations].sort((a, b) => {
+
+    // Apply filter first
+    let filtered = [...jobRecommendations];
+    if (jobsFilter) {
+      if (jobsFilter.type === "target") {
+        if (jobsFilter.value === "serverless") {
+          filtered = filtered.filter((r) => r.target_cluster_name.toLowerCase().includes("serverless"));
+        } else if (jobsFilter.value === "existing") {
+          filtered = filtered.filter((r) => !r.target_cluster_name.toLowerCase().includes("serverless"));
+        }
+      } else if (jobsFilter.type === "reason") {
+        if (jobsFilter.value === "consolidation") {
+          filtered = filtered.filter((r) => r.reason.toLowerCase().includes("terminated"));
+        } else if (jobsFilter.value === "similar") {
+          filtered = filtered.filter((r) => r.reason.toLowerCase().includes("similar config"));
+        } else if (jobsFilter.value === "no-autoterminate") {
+          filtered = filtered.filter((r) => r.reason.toLowerCase().includes("without auto-terminate"));
+        }
+      }
+    }
+
+    // Then sort
+    return filtered.sort((a, b) => {
       const { field, direction } = jobsSort;
       let comparison = 0;
       switch (field) {
@@ -1555,7 +1578,19 @@ function OptimizationPage() {
       }
       return direction === "asc" ? comparison : -comparison;
     });
-  }, [jobRecommendations, jobsSort]);
+  }, [jobRecommendations, jobsSort, jobsFilter]);
+
+  // Compute job recommendation counts for filter badges
+  const jobFilterCounts = useMemo(() => {
+    if (!jobRecommendations) return { serverless: 0, existing: 0, consolidation: 0, similar: 0, noAutoterminate: 0 };
+    return {
+      serverless: jobRecommendations.filter((r) => r.target_cluster_name.toLowerCase().includes("serverless")).length,
+      existing: jobRecommendations.filter((r) => !r.target_cluster_name.toLowerCase().includes("serverless")).length,
+      consolidation: jobRecommendations.filter((r) => r.reason.toLowerCase().includes("terminated")).length,
+      similar: jobRecommendations.filter((r) => r.reason.toLowerCase().includes("similar config")).length,
+      noAutoterminate: jobRecommendations.filter((r) => r.reason.toLowerCase().includes("without auto-terminate")).length,
+    };
+  }, [jobRecommendations]);
 
   // Sorted data for Schedule
   const sortedScheduleRecommendations = useMemo(() => {
@@ -2653,6 +2688,88 @@ function OptimizationPage() {
               Suggestions to consolidate job workloads onto underutilized clusters.
             </p>
 
+            {/* Filter chips */}
+            {jobRecommendations && jobRecommendations.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="text-xs text-muted-foreground mr-1">Filter by:</span>
+                {/* Target type filters */}
+                <button
+                  onClick={() => setJobsFilter(jobsFilter?.type === "target" && jobsFilter.value === "serverless" ? null : { type: "target", value: "serverless" })}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    jobsFilter?.type === "target" && jobsFilter.value === "serverless"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                  )}
+                >
+                  <Cloud size={12} />
+                  Serverless ({jobFilterCounts.serverless})
+                </button>
+                <button
+                  onClick={() => setJobsFilter(jobsFilter?.type === "target" && jobsFilter.value === "existing" ? null : { type: "target", value: "existing" })}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    jobsFilter?.type === "target" && jobsFilter.value === "existing"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                  )}
+                >
+                  <Server size={12} />
+                  Existing Cluster ({jobFilterCounts.existing})
+                </button>
+                <span className="text-muted-foreground mx-1">|</span>
+                {/* Reason type filters */}
+                {jobFilterCounts.consolidation > 0 && (
+                  <button
+                    onClick={() => setJobsFilter(jobsFilter?.type === "reason" && jobsFilter.value === "consolidation" ? null : { type: "reason", value: "consolidation" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      jobsFilter?.type === "reason" && jobsFilter.value === "consolidation"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    Consolidation ({jobFilterCounts.consolidation})
+                  </button>
+                )}
+                {jobFilterCounts.similar > 0 && (
+                  <button
+                    onClick={() => setJobsFilter(jobsFilter?.type === "reason" && jobsFilter.value === "similar" ? null : { type: "reason", value: "similar" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      jobsFilter?.type === "reason" && jobsFilter.value === "similar"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    Similar Config ({jobFilterCounts.similar})
+                  </button>
+                )}
+                {jobFilterCounts.noAutoterminate > 0 && (
+                  <button
+                    onClick={() => setJobsFilter(jobsFilter?.type === "reason" && jobsFilter.value === "no-autoterminate" ? null : { type: "reason", value: "no-autoterminate" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      jobsFilter?.type === "reason" && jobsFilter.value === "no-autoterminate"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    No Auto-terminate ({jobFilterCounts.noAutoterminate})
+                  </button>
+                )}
+                {jobsFilter && (
+                  <button
+                    onClick={() => setJobsFilter(null)}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X size={12} />
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+
             {jobsLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -2660,7 +2777,7 @@ function OptimizationPage() {
             ) : jobRecommendations && jobRecommendations.length > 0 ? (
               jobsView === "cards" ? (
                 <div className="space-y-4">
-                  {jobRecommendations.map((rec, idx) => (
+                  {sortedJobRecommendations.map((rec, idx) => (
                     <div
                       key={idx}
                       className="p-4 bg-muted/50 rounded-lg border border-transparent hover:border-primary/20 transition-colors"
