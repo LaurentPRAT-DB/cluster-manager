@@ -79,6 +79,23 @@ def _estimate_dbu_per_hour(cluster: ClusterDetails) -> float:
     return (num_workers + 1) * 1.0
 
 
+def _format_termination_reason(reason) -> str | None:
+    """Format TerminationReason object to a readable string."""
+    if reason is None:
+        return None
+    # TerminationReason has code, type, and parameters attributes
+    parts = []
+    if hasattr(reason, 'code') and reason.code:
+        parts.append(str(reason.code.value) if hasattr(reason.code, 'value') else str(reason.code))
+    if hasattr(reason, 'type') and reason.type:
+        parts.append(str(reason.type.value) if hasattr(reason.type, 'value') else str(reason.type))
+    if hasattr(reason, 'parameters') and reason.parameters:
+        # Include key parameters like inactivity_duration
+        for key, value in reason.parameters.items():
+            parts.append(f"{key}={value}")
+    return " - ".join(parts) if parts else None
+
+
 def _cluster_to_summary(cluster: ClusterDetails) -> ClusterSummary:
     """Convert SDK ClusterDetails to our ClusterSummary model."""
     autoscale = None
@@ -118,7 +135,7 @@ def _cluster_to_detail(cluster: ClusterDetails) -> ClusterDetail:
     return ClusterDetail(
         **summary.model_dump(),
         terminated_time=_ms_to_datetime(cluster.terminated_time),
-        termination_reason=cluster.termination_reason.message if cluster.termination_reason else None,
+        termination_reason=_format_termination_reason(cluster.termination_reason),
         state_message=cluster.state_message,
         default_tags=cluster.default_tags or {},
         custom_tags=cluster.custom_tags or {},
