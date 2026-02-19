@@ -635,3 +635,85 @@ results = ws.statement_execution.execute_statement(
     statement="SELECT * FROM system.billing.usage LIMIT 10"
 )
 ```
+
+---
+
+## MCP Server API
+
+The app exposes a managed MCP (Model Context Protocol) server for AI agent integration via JSON-RPC 2.0.
+
+### Health Check
+
+```http
+GET /api/mcp/health
+```
+
+**Response**:
+```json
+{
+  "status": "healthy",
+  "server": "cluster-manager-mcp",
+  "version": "1.0.0",
+  "tools_count": 7
+}
+```
+
+### List Tools
+
+```http
+GET /api/mcp/tools
+```
+
+**Response**: Array of available MCP tools with schemas.
+
+### Execute Tool (JSON-RPC 2.0)
+
+```http
+POST /api/mcp
+Content-Type: application/json
+```
+
+**Request**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "method": "tools/call",
+  "params": {
+    "name": "list_clusters",
+    "arguments": {
+      "state": "RUNNING"
+    }
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"cluster_id\": \"...\", \"cluster_name\": \"...\"}]"
+      }
+    ]
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_clusters` | List clusters with optional state filter |
+| `get_cluster` | Get detailed cluster configuration |
+| `start_cluster` | Start a stopped cluster |
+| `stop_cluster` | Stop a running cluster |
+| `get_cluster_events` | Get cluster event history |
+| `list_policies` | List cluster policies |
+| `get_policy` | Get policy details |
+
+> **Full Documentation**: See [MCP Server Guide](MCP_SERVER.md) for complete setup instructions including Unity Catalog HTTP Connection configuration for AI Playground integration.

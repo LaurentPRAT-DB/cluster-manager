@@ -143,6 +143,30 @@ This ensures no permanent cluster loss through the UI. Configuration remains int
                               └───────────────────────┘
 ```
 
+### MCP Server Integration
+
+The app also exposes a **Managed MCP Server** for AI agent integration via Databricks AI Playground:
+
+```
+┌──────────────────────┐     UC HTTP Connection     ┌──────────────────────┐
+│   AI Playground      │ ◄─────────────────────────►│   Cluster Manager    │
+│   (or AI Agent)      │      JSON-RPC 2.0          │   /api/mcp/*         │
+└──────────────────────┘                            └──────────────────────┘
+                                                              │
+                                                    ┌─────────▼─────────┐
+                                                    │   7 MCP Tools     │
+                                                    │   list_clusters   │
+                                                    │   get_cluster     │
+                                                    │   start_cluster   │
+                                                    │   stop_cluster    │
+                                                    │   get_events      │
+                                                    │   list_policies   │
+                                                    │   get_policy      │
+                                                    └───────────────────┘
+```
+
+See [MCP Server Guide](docs/MCP_SERVER.md) for setup instructions.
+
 ---
 
 ## Prerequisites
@@ -220,6 +244,13 @@ export CLUSTER_MANAGER_SQL_WAREHOUSE_ID=abc123def456
 | `/api/policies/{id}` | GET | Policy details |
 | `/api/policies/{id}/usage` | GET | Clusters using this policy |
 
+### MCP Server (AI Agent Integration)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/mcp/health` | GET | Server health and capabilities |
+| `/api/mcp/tools` | GET | List available MCP tools |
+| `/api/mcp` | POST | JSON-RPC 2.0 endpoint for tool execution |
+
 ---
 
 ## Security Considerations
@@ -253,6 +284,7 @@ Future enhancements for administrators:
 | [Contributing Guide](docs/CONTRIBUTING.md) | Development workflow and coding standards |
 | [Data Dictionary](docs/DATA_DICTIONARY.md) | All data models and schemas |
 | [Optimization Strategies](docs/OPTIMIZATION_STRATEGIES.md) | Complete guide to all 42+ cost optimization checks |
+| [MCP Server Guide](docs/MCP_SERVER.md) | Transform your app into a managed MCP server for AI agents |
 
 ### External References
 

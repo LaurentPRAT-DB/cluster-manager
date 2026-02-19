@@ -22,6 +22,7 @@ The Cluster Manager is a full-stack Databricks App built using the APX framework
 │  │  │    Query         │              │  - Policies Router           │ │   │
 │  │  │  - Tailwind CSS  │              │  - Optimization Router       │ │   │
 │  │  │  - shadcn/ui     │              │  - Workspace Router          │ │   │
+│  │  │                  │              │  - MCP Router (AI agents)    │ │   │
 │  │  │                  │              │                              │ │   │
 │  │  └──────────────────┘              └──────────────┬───────────────┘ │   │
 │  │                                                   │                  │   │
@@ -93,7 +94,8 @@ cluster_manager/backend/
     ├── metrics.py           # Cluster metrics
     ├── policies.py          # Policy management
     ├── optimization.py      # Cost optimization analysis
-    └── workspace.py         # Workspace info
+    ├── workspace.py         # Workspace info
+    └── mcp.py               # MCP server for AI agent integration
 ```
 
 ## Data Flow
