@@ -61,12 +61,16 @@ function MetricCard({
   icon: Icon,
   subtitle,
   variant = "default",
+  onClick,
+  isSelected,
 }: {
   title: string;
   value: string | number;
   icon: React.ElementType;
   subtitle?: string;
   variant?: "default" | "warning" | "success" | "danger";
+  onClick?: () => void;
+  isSelected?: boolean;
 }) {
   const variantStyles = {
     default: "bg-primary/10 text-primary",
@@ -76,7 +80,14 @@ function MetricCard({
   };
 
   return (
-    <div className="bg-card rounded-lg border p-5">
+    <div
+      className={cn(
+        "bg-card rounded-lg border p-5 transition-all",
+        onClick && "cursor-pointer hover:border-primary/50",
+        isSelected && "ring-2 ring-primary border-primary"
+      )}
+      onClick={onClick}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-muted-foreground">{title}</p>
@@ -1207,6 +1218,9 @@ function OptimizationPage() {
     direction: "desc",
   });
 
+  // Filter state for oversized/underutilized clusters
+  const [clusterFilter, setClusterFilter] = useState<"all" | "oversized" | "underutilized">("all");
+
   // View mode state for each tab
   const [sparkConfigView, setSparkConfigView] = useState<ViewMode>("cards");
   const [costView, setCostView] = useState<ViewMode>("cards");
@@ -1254,10 +1268,20 @@ function OptimizationPage() {
     }));
   };
 
-  // Sort oversized clusters
+  // Sort and filter oversized clusters
   const sortedOversizedClusters = useMemo(() => {
     if (!oversizedClusters) return [];
-    return [...oversizedClusters].sort((a, b) => {
+
+    // Apply filter first
+    let filtered = [...oversizedClusters];
+    if (clusterFilter === "oversized") {
+      filtered = filtered.filter((c) => c.current_workers >= 20);
+    } else if (clusterFilter === "underutilized") {
+      filtered = filtered.filter((c) => c.current_workers >= 10 && c.current_workers < 20);
+    }
+
+    // Then sort
+    return filtered.sort((a, b) => {
       const { field, direction } = oversizedSort;
       let comparison = 0;
 
@@ -1284,7 +1308,7 @@ function OptimizationPage() {
 
       return direction === "asc" ? comparison : -comparison;
     });
-  }, [oversizedClusters, oversizedSort]);
+  }, [oversizedClusters, oversizedSort, clusterFilter]);
 
   // Sort handlers for each tab
   const handleSparkConfigSort = (field: SparkConfigSortField) => {
@@ -1609,6 +1633,8 @@ function OptimizationPage() {
               icon={AlertTriangle}
               subtitle=">= 20 workers"
               variant={summary.oversized_clusters > 0 ? "warning" : "default"}
+              onClick={() => setClusterFilter(clusterFilter === "oversized" ? "all" : "oversized")}
+              isSelected={clusterFilter === "oversized"}
             />
             <MetricCard
               title="Underutilized"
@@ -1616,6 +1642,8 @@ function OptimizationPage() {
               icon={TrendingDown}
               subtitle=">= 10 workers"
               variant={summary.underutilized_clusters > 0 ? "warning" : "default"}
+              onClick={() => setClusterFilter(clusterFilter === "underutilized" ? "all" : "underutilized")}
+              isSelected={clusterFilter === "underutilized"}
             />
             <MetricCard
               title="Potential Savings"
@@ -1656,12 +1684,26 @@ function OptimizationPage() {
       <div className="bg-card rounded-lg border">
         {activeTab === "oversized" && (
           <div className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingDown className="h-5 w-5 text-yellow-500" />
-              <h2 className="text-lg font-semibold">Potentially Oversized Clusters</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TrendingDown className="h-5 w-5 text-yellow-500" />
+                <h2 className="text-lg font-semibold">Potentially Oversized Clusters</h2>
+                {clusterFilter !== "all" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                    {clusterFilter === "oversized" ? "Oversized (≥20 workers)" : "Underutilized (10-19 workers)"}
+                    <button
+                      onClick={() => setClusterFilter("all")}
+                      className="ml-1 hover:text-primary/70"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+              </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               These clusters have 5+ workers and may have excess capacity based on estimated utilization.
+              {clusterFilter === "all" && " Click on 'Oversized' or 'Underutilized' cards above to filter."}
             </p>
 
             {oversizedLoading ? (
