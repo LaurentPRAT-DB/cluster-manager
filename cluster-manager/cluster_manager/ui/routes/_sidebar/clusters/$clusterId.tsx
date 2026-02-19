@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
   AlertCircle,
   ArrowLeft,
@@ -65,6 +65,7 @@ function InfoRow({
 
 function ClusterDetailPage() {
   const { clusterId } = Route.useParams();
+  const router = useRouter();
   const { data: cluster, isLoading, error, refetch } = useCluster(clusterId);
   const { data: eventsData } = useClusterEvents(clusterId, 20);
   const startCluster = useStartCluster();
@@ -122,12 +123,13 @@ function ClusterDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <Link
-            to="/clusters"
+          <button
+            onClick={() => router.history.back()}
             className="p-2 hover:bg-muted rounded-lg transition-colors"
+            title="Go back"
           >
             <ArrowLeft size={20} />
-          </Link>
+          </button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">{cluster.cluster_name}</h1>
