@@ -102,7 +102,150 @@ SELECT http_request(
 );
 ```
 
-### Step 4: Create a Supervisor Agent
+### Step 4: Test with AI Playground (Interactive)
+
+The fastest way to validate your MCP tools work correctly is through the Databricks AI Playground. This lets you test tool selection and execution interactively before creating a Supervisor Agent.
+
+#### 4.1: Navigate to AI Playground
+
+1. Open your Databricks workspace in a browser
+2. In the left sidebar, click **Machine Learning**
+3. Click **AI Playground** from the submenu
+4. Wait for the Playground interface to load
+
+#### 4.2: Add the MCP Server
+
+1. Look at the **right sidebar** of the Playground
+2. Click the **MCP Servers** tab (icon looks like a plug/connection)
+3. Click the **+ Add MCP Server** button
+4. From the dropdown, select **Unity Catalog Connection**
+5. In the connection picker:
+   - Browse or search for `cluster_manager_mcp`
+   - Select it from the list
+6. Click **Add**
+7. **Verify**: The MCP server should now appear in the sidebar with a green status indicator
+
+#### 4.3: Verify Tools Are Loaded
+
+1. Click on `cluster_manager_mcp` in the sidebar to expand it
+2. You should see a list of available tools:
+   - `list_clusters`
+   - `get_cluster`
+   - `start_cluster`
+   - `stop_cluster`
+   - `get_cluster_events`
+   - `list_policies`
+   - `get_policy`
+
+3. **If no tools appear**:
+   - Check that the app is running: `databricks apps get cluster-manager`
+   - Verify the connection is correctly configured
+   - Try removing and re-adding the MCP server
+
+#### 4.4: Test Tool Selection with Natural Language
+
+Type a natural language question in the chat input that should trigger one of the tools:
+
+**Example questions to test:**
+```
+"What clusters are currently running in the workspace?"
+"Show me all terminated clusters"
+"How many clusters do we have?"
+"Get details for cluster 0123-456789-abcdef"
+"Show me clusters owned by alice@company.com"
+"What policies are available?"
+"Which clusters have been running for more than 24 hours?"
+```
+
+#### 4.5: Verify the AI's Tool Selection
+
+After submitting your question, observe the AI's response:
+
+1. **Check tool selection**: The AI should display which tool it chose to call
+   - Look for text like "Calling list_clusters..." or a tool indicator
+
+2. **Check arguments**: The AI should populate correct arguments
+   - For "running clusters" → `state: "RUNNING"`
+   - For "owned by alice" → filter in results
+
+3. **Check results**: The response should contain actual data
+   - Clusters should have real names, IDs, and states
+   - Data should match what you see in the Databricks Clusters UI
+
+#### 4.6: Example Successful Interaction
+
+Here's what a successful test looks like:
+
+```
+YOU: "What clusters are currently running in the workspace?"
+
+AI RESPONSE:
+┌─────────────────────────────────────────────────────────────┐
+│ Using tool: list_clusters                                   │
+│ Arguments: {"state": "RUNNING"}                             │
+└─────────────────────────────────────────────────────────────┘
+
+There are 21 clusters currently running in the workspace:
+
+| Cluster Name       | Owner              | Uptime   | Node Type  |
+|--------------------|--------------------|----------|------------|
+| analytics-prod     | alice@company.com  | 4h 32m   | i3.xlarge  |
+| ml-training-01     | bob@company.com    | 12h 15m  | p3.2xlarge |
+| data-pipeline      | etl@company.com    | 2h 45m   | r5.4xlarge |
+| ...                | ...                | ...      | ...        |
+
+The clusters are sorted by uptime. The ml-training-01 cluster has been
+running the longest at 12 hours and 15 minutes.
+```
+
+#### 4.7: Test Each Tool
+
+Test all MCP tools to ensure they work correctly:
+
+| Question | Expected Tool | Expected Arguments |
+|----------|---------------|-------------------|
+| "Show me all clusters" | `list_clusters` | `{}` |
+| "Show running clusters" | `list_clusters` | `{"state": "RUNNING"}` |
+| "Get details for cluster abc-123" | `get_cluster` | `{"cluster_id": "abc-123"}` |
+| "What happened to cluster abc-123?" | `get_cluster_events` | `{"cluster_id": "abc-123"}` |
+| "Start the dev-cluster" | `start_cluster` | `{"cluster_id": "..."}` |
+| "Stop cluster abc-123" | `stop_cluster` | `{"cluster_id": "abc-123"}` |
+| "List all policies" | `list_policies` | `{}` |
+| "Show policy xyz-456" | `get_policy` | `{"policy_id": "xyz-456"}` |
+
+#### 4.8: Troubleshooting in AI Playground
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| MCP Server doesn't appear | Connection not added | Click + Add MCP Server → Unity Catalog Connection |
+| No tools listed | App not running | Run `databricks apps start cluster-manager` |
+| "Tool not found" error | Tool name mismatch | Verify tool names in app match expected names |
+| Wrong tool selected | Ambiguous request | Be more specific in your question |
+| "Authentication failed" | OAuth secret expired | Create new secret, update UC connection |
+| "Connection refused" | App crashed | Check logs: `databricks apps get cluster-manager` |
+| Empty results | Tool returned no data | Check app logs for errors |
+| Timeout | App too slow | Check app performance |
+
+#### Validation Checklist
+
+Complete this checklist to confirm MCP tools are working:
+
+```
+- [ ] AI Playground is accessible
+- [ ] MCP Server added successfully (shows green status)
+- [ ] All 7 tools appear in the sidebar
+- [ ] list_clusters returns expected data
+- [ ] Filtered query (state=RUNNING) applies correctly
+- [ ] get_cluster works with valid cluster_id
+- [ ] get_cluster_events returns event history
+- [ ] list_policies returns available policies
+- [ ] get_policy returns policy details
+- [ ] Error handling works for invalid IDs
+```
+
+---
+
+### Step 5: Create a Supervisor Agent (Optional)
 
 Create a Supervisor Agent that uses the MCP connection:
 
