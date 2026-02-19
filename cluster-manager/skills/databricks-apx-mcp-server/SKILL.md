@@ -463,6 +463,84 @@ manage_mas(
 
 ---
 
+## Common Debugging Issues
+
+### SDK Object Attributes
+
+Don't assume Databricks SDK objects have intuitive attributes. Always check the actual structure:
+
+```python
+# WRONG - TerminationReason has no .message attribute
+termination_reason=cluster.termination_reason.message
+
+# CORRECT - TerminationReason has code, type, parameters
+def _format_termination_reason(reason) -> str | None:
+    """Format TerminationReason object to a readable string."""
+    if reason is None:
+        return None
+    parts = []
+    if hasattr(reason, 'code') and reason.code:
+        parts.append(str(reason.code.value) if hasattr(reason.code, 'value') else str(reason.code))
+    if hasattr(reason, 'type') and reason.type:
+        parts.append(str(reason.type.value) if hasattr(reason.type, 'value') else str(reason.type))
+    if hasattr(reason, 'parameters') and reason.parameters:
+        for key, value in reason.parameters.items():
+            parts.append(f"{key}={value}")
+    return " - ".join(parts) if parts else None
+```
+
+### Back Button Navigation (React/TanStack Router)
+
+Don't hardcode back button destinations - use browser history for proper navigation:
+
+```tsx
+// WRONG - Always goes to /clusters regardless of where user came from
+<Link to="/clusters">
+  <ArrowLeft />
+</Link>
+
+// CORRECT - Returns to previous page (Optimization, Policies, etc.)
+import { useRouter } from "@tanstack/react-router";
+
+function DetailPage() {
+  const router = useRouter();
+  return (
+    <button onClick={() => router.history.back()} title="Go back">
+      <ArrowLeft />
+    </button>
+  );
+}
+```
+
+### Falsy Value Checks for Filters
+
+When filtering on numeric fields that can be 0 or null:
+
+```tsx
+// WRONG - 0 !== null is true, so 0 counts as "has value"
+filtered.filter(r => r.auto_terminate_minutes !== null)
+
+// CORRECT - treats both 0 and null as "no value"
+filtered.filter(r => !!r.auto_terminate_minutes)
+```
+
+### Deployment Not Reflecting Changes
+
+After code changes, you need BOTH commands:
+
+```bash
+# 1. Upload bundle files
+databricks bundle deploy -t dev
+
+# 2. Trigger actual app deployment (REQUIRED!)
+databricks apps deploy <app-name> \
+  --source-code-path "/Workspace/Users/<email>/.bundle/<app>/dev/files"
+```
+
+The first command uploads files; the second triggers the actual deployment. Missing the second command is a common mistake.
+
+---
+
 ## Reference Implementation
 
 See the Cluster Manager project for a complete example:
