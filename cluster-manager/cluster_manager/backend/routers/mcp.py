@@ -48,27 +48,48 @@ class JsonRpcResponse(BaseModel):
 
 # --- MCP Tool Definitions ---
 
-# These tools expose cluster management operations to AI agents
+# These tools expose cluster management operations to AI agents.
+# IMPORTANT: Descriptions are critical for AI routing - be specific about:
+# - What the tool does and returns
+# - When to use it vs other tools
+# - Example user requests that should trigger this tool
+
 MCP_TOOLS = [
     {
         "name": "list_clusters",
         "description": (
-            "List all clusters in the Databricks workspace. Returns cluster ID, name, "
-            "state (RUNNING, TERMINATED, PENDING, etc.), creator, node types, worker count, "
-            "Spark version, uptime in minutes, and estimated DBU per hour. "
-            "Use this to get an overview of all clusters or find specific clusters by state."
+            "LIST AND SEARCH CLUSTERS - Get an overview of all Databricks clusters in the workspace. "
+            "\n\n"
+            "RETURNS: Array of clusters with: cluster_id, cluster_name, state (RUNNING/TERMINATED/PENDING/ERROR), "
+            "creator_user_name, node_type_id, num_workers (or autoscale min/max), spark_version, "
+            "uptime_minutes (for running clusters), estimated_dbu_per_hour, policy_id. "
+            "\n\n"
+            "USE THIS TOOL WHEN USER ASKS: "
+            "'Show me all clusters', 'What clusters are running?', 'List terminated clusters', "
+            "'How many clusters do we have?', 'Which clusters are using the most DBUs?', "
+            "'Find clusters owned by X', 'Show idle clusters', 'What's the cluster status?', "
+            "'Are there any clusters in error state?', 'Show me clusters with high uptime'. "
+            "\n\n"
+            "DO NOT USE FOR: Getting detailed config of ONE specific cluster (use get_cluster instead), "
+            "or for taking actions like start/stop (use start_cluster/stop_cluster). "
+            "\n\n"
+            "TIP: Filter by state='RUNNING' to find active clusters, or state='TERMINATED' for stopped ones. "
+            "The uptime_minutes field helps identify long-running clusters that may need attention."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "state": {
                     "type": "string",
-                    "description": "Optional filter by cluster state",
+                    "description": (
+                        "Filter clusters by state. RUNNING=active clusters, TERMINATED=stopped clusters, "
+                        "PENDING=starting up, ERROR=failed clusters. Omit to get all clusters."
+                    ),
                     "enum": ["RUNNING", "TERMINATED", "PENDING", "RESTARTING", "RESIZING", "TERMINATING", "ERROR"],
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Maximum number of clusters to return (default: 100, max: 500)",
+                    "description": "Maximum clusters to return. Use smaller limits (10-20) for quick overviews, larger (100+) for full inventory.",
                     "default": 100,
                     "minimum": 1,
                     "maximum": 500,
@@ -79,17 +100,32 @@ MCP_TOOLS = [
     {
         "name": "get_cluster",
         "description": (
-            "Get detailed information about a specific cluster by ID. Returns full configuration "
-            "including Spark settings, environment variables, init scripts, tags, cloud attributes, "
-            "termination reason (if terminated), and security settings. "
-            "Use this when you need complete details about a single cluster."
+            "GET DETAILED CLUSTER CONFIGURATION - Retrieve complete information about ONE specific cluster. "
+            "\n\n"
+            "RETURNS: Full cluster details including: cluster_id, cluster_name, state, state_message, "
+            "all Spark configuration (spark_conf), environment variables (spark_env_vars), "
+            "init scripts, custom tags, cloud-specific attributes (AWS/Azure/GCP), "
+            "termination_reason (why it stopped), security settings (data_security_mode, single_user_name), "
+            "disk configuration, and policy_id. "
+            "\n\n"
+            "USE THIS TOOL WHEN USER ASKS: "
+            "'Show me details for cluster X', 'What's the configuration of cluster Y?', "
+            "'Why did cluster Z terminate?', 'What Spark version is cluster X using?', "
+            "'Show me the Spark config for this cluster', 'What tags are on cluster X?', "
+            "'Is cluster X using spot instances?', 'What's the termination reason?', "
+            "'Show me the init scripts for cluster X', 'What security mode is this cluster using?'. "
+            "\n\n"
+            "DO NOT USE FOR: Listing multiple clusters (use list_clusters), "
+            "or taking actions (use start_cluster/stop_cluster). "
+            "\n\n"
+            "REQUIRES: cluster_id - get this from list_clusters first if you don't have it."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "cluster_id": {
                     "type": "string",
-                    "description": "The unique cluster ID (e.g., '0123-456789-abcdef12')",
+                    "description": "The unique cluster ID (format: '0123-456789-abcdef12'). Get this from list_clusters if unknown.",
                 },
             },
             "required": ["cluster_id"],
@@ -98,16 +134,31 @@ MCP_TOOLS = [
     {
         "name": "start_cluster",
         "description": (
-            "Start a terminated or stopped cluster. The cluster will transition through PENDING "
-            "state before becoming RUNNING. Only works on clusters in TERMINATED or ERROR state. "
-            "Use this to spin up a cluster that was previously stopped."
+            "START A STOPPED CLUSTER - Boot up a terminated cluster to make it available for use. "
+            "\n\n"
+            "RETURNS: Success/failure status with message. On success, cluster begins transitioning "
+            "from TERMINATED -> PENDING -> RUNNING 'state. This typically takes 2-5 minutes. "
+            "\n\n"
+            "USE THIS TOOL WHEN USER ASKS: "
+            "'Start cluster X', 'Boot up the data team cluster', 'Turn on cluster Y', "
+            "'Spin up the ML cluster', 'I need cluster X running', 'Bring cluster X online', "
+            "'Wake up cluster X', 'Resume cluster X'. "
+            "\n\n"
+            "PRECONDITIONS: Cluster must be in TERMINATED or ERROR state. "
+            "If cluster is already RUNNING, the tool returns success with 'already running' message. "
+            "If cluster is in PENDING/RESTARTING state, the tool will fail - wait and retry. "
+            "\n\n"
+            "DO NOT USE FOR: Stopping clusters (use stop_cluster), getting info (use get_cluster/list_clusters). "
+            "\n\n"
+            "IMPORTANT: Always confirm with user before starting - this incurs compute costs. "
+            "After starting, use list_clusters with state='RUNNING' to verify it came up."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "cluster_id": {
                     "type": "string",
-                    "description": "The unique cluster ID to start",
+                    "description": "The cluster ID to start. Get from list_clusters if unknown.",
                 },
             },
             "required": ["cluster_id"],
@@ -116,17 +167,34 @@ MCP_TOOLS = [
     {
         "name": "stop_cluster",
         "description": (
-            "Stop a running cluster. This is a SAFE operation - the cluster configuration is "
-            "preserved and can be started again later. The cluster will transition through "
-            "TERMINATING state before becoming TERMINATED. Any running jobs will be interrupted. "
-            "Use this to save costs by stopping idle clusters."
+            "STOP A RUNNING CLUSTER - Safely shut down a cluster to save costs. Configuration is preserved. "
+            "\n\n"
+            "RETURNS: Success/failure status with message. On success, cluster transitions "
+            "from RUNNING -> TERMINATING -> TERMINATED. This typically takes 1-2 minutes. "
+            "\n\n"
+            "USE THIS TOOL WHEN USER ASKS: "
+            "'Stop cluster X', 'Shut down the dev cluster', 'Turn off cluster Y', "
+            "'Terminate cluster X', 'Kill cluster X', 'Take cluster X offline', "
+            "'Stop all idle clusters', 'Shut down clusters not in use'. "
+            "\n\n"
+            "SAFE OPERATION: This is NOT destructive - the cluster configuration is preserved "
+            "and can be started again later with start_cluster. The cluster definition remains "
+            "in the workspace. "
+            "\n\n"
+            "PRECONDITIONS: Cluster should be in RUNNING, PENDING, or RESIZING state. "
+            "If already TERMINATED, returns success with 'already stopped' message. "
+            "\n\n"
+            "WARNING: Any running jobs on the cluster will be interrupted! "
+            "Always confirm with user before stopping, especially during business hours. "
+            "\n\n"
+            "DO NOT USE FOR: Starting clusters (use start_cluster), getting info (use get_cluster)."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "cluster_id": {
                     "type": "string",
-                    "description": "The unique cluster ID to stop",
+                    "description": "The cluster ID to stop. Get from list_clusters if unknown.",
                 },
             },
             "required": ["cluster_id"],
@@ -135,20 +203,37 @@ MCP_TOOLS = [
     {
         "name": "get_cluster_events",
         "description": (
-            "Get recent events for a cluster. Returns event history including state changes, "
-            "resize operations, errors, and other cluster lifecycle events. "
-            "Use this to debug cluster issues or understand recent cluster activity."
+            "GET CLUSTER EVENT HISTORY - View recent lifecycle events and state changes for a cluster. "
+            "\n\n"
+            "RETURNS: Array of events with: timestamp, event_type (STARTING, RUNNING, TERMINATING, etc.), "
+            "and details about each event (resize info, error messages, user actions). "
+            "\n\n"
+            "USE THIS TOOL WHEN USER ASKS: "
+            "'What happened to cluster X?', 'Show me cluster X event history', "
+            "'Why did cluster X fail?', 'When was cluster X last started?', "
+            "'Show me the cluster activity log', 'Debug cluster X issues', "
+            "'What caused cluster X to terminate?', 'Show recent cluster X events', "
+            "'Has anyone restarted cluster X recently?', 'Cluster X timeline'. "
+            "\n\n"
+            "USEFUL FOR: Debugging cluster problems, understanding why a cluster terminated unexpectedly, "
+            "auditing who started/stopped a cluster, tracking resize operations, "
+            "investigating error states, understanding cluster lifecycle. "
+            "\n\n"
+            "DO NOT USE FOR: Current cluster state (use get_cluster), listing clusters (use list_clusters), "
+            "or taking actions (use start_cluster/stop_cluster). "
+            "\n\n"
+            "TIP: Start with limit=20 for recent events, increase to 50-100 for deeper history."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "cluster_id": {
                     "type": "string",
-                    "description": "The unique cluster ID",
+                    "description": "The cluster ID to get events for.",
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Maximum number of events to return (default: 50, max: 100)",
+                    "description": "Number of events to return. Use 10-20 for quick look, 50+ for detailed investigation.",
                     "default": 50,
                     "minimum": 1,
                     "maximum": 100,
@@ -160,10 +245,25 @@ MCP_TOOLS = [
     {
         "name": "list_policies",
         "description": (
-            "List all cluster policies in the workspace. Returns policy ID, name, description, "
-            "creator, and whether the policy is used for jobs. Cluster policies define "
-            "constraints and defaults for cluster creation. "
-            "Use this to see available policies or find a policy by name."
+            "LIST CLUSTER POLICIES - View all cluster policies that govern how clusters can be created. "
+            "\n\n"
+            "RETURNS: Array of policies with: policy_id, name, description, definition (JSON rules), "
+            "creator_user_name, created_at_timestamp, is_default flag. "
+            "\n\n"
+            "USE THIS TOOL WHEN USER ASKS: "
+            "'What cluster policies do we have?', 'Show me all policies', "
+            "'List available cluster policies', 'What policies can I use?', "
+            "'Find the policy for data team', 'Show me job cluster policies', "
+            "'What are our cluster governance rules?', 'Policy inventory'. "
+            "\n\n"
+            "CLUSTER POLICIES DEFINE: Which instance types are allowed, min/max workers, "
+            "auto-termination settings, Spark versions, required tags, and other constraints. "
+            "They help enforce cost controls and compliance. "
+            "\n\n"
+            "DO NOT USE FOR: Getting full details of one policy (use get_policy with policy_id), "
+            "or anything related to clusters themselves (use cluster tools). "
+            "\n\n"
+            "TIP: After listing, use get_policy to see the full definition/constraints of a specific policy."
         ),
         "inputSchema": {
             "type": "object",
@@ -173,16 +273,32 @@ MCP_TOOLS = [
     {
         "name": "get_policy",
         "description": (
-            "Get detailed information about a specific cluster policy. Returns the full policy "
-            "definition including all constraints, defaults, and overrides. "
-            "Use this to understand what a policy allows or restricts."
+            "GET POLICY DETAILS - Retrieve the complete definition and constraints of ONE cluster policy. "
+            "\n\n"
+            "RETURNS: Full policy including: policy_id, name, description, definition_json (parsed rules), "
+            "max_clusters_per_user, creator, policy_family info. The definition_json contains "
+            "all constraints like allowed instance types, worker limits, required tags, etc. "
+            "\n\n"
+            "USE THIS TOOL WHEN USER ASKS: "
+            "'What does policy X allow?', 'Show me the rules for policy Y', "
+            "'What instance types can I use with policy X?', 'What are the limits in policy Y?', "
+            "'Explain policy X constraints', 'What tags are required by policy X?', "
+            "'Can I use spot instances with policy Y?', 'What's the max workers for policy X?'. "
+            "\n\n"
+            "USEFUL FOR: Understanding what a policy allows/restricts before creating a cluster, "
+            "troubleshooting why cluster creation failed, auditing governance rules, "
+            "comparing policies. "
+            "\n\n"
+            "DO NOT USE FOR: Listing all policies (use list_policies first to find policy_id). "
+            "\n\n"
+            "REQUIRES: policy_id - get this from list_policies or from a cluster's policy_id field."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "policy_id": {
                     "type": "string",
-                    "description": "The unique policy ID",
+                    "description": "The policy ID to retrieve. Get from list_policies or from a cluster's policy_id.",
                 },
             },
             "required": ["policy_id"],
