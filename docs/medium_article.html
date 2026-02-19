@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<!--
+  Medium Article: How to Transform Your Databricks App into an AI-Powered MCP Server in 30 Minutes
+  Version: 1.0.0
+  Last Updated: 2026-02-19
+  Features: Gist markers for code blocks, mobile fallback links
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="version" content="1.0.0">
+    <meta name="last-updated" content="2026-02-19">
+    <title>How to Transform Your Databricks App into an AI-Powered MCP Server in 30 Minutes</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 { font-size: 2.2em; margin-bottom: 0.3em; }
+        h2 { font-size: 1.6em; margin-top: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        h3 { font-size: 1.3em; margin-top: 1.5em; }
+        img { max-width: 100%; height: auto; margin: 1em 0; }
+        figcaption { font-style: italic; color: #666; font-size: 0.9em; text-align: center; }
+        blockquote { border-left: 3px solid #FF3621; padding-left: 1em; margin-left: 0; color: #555; }
+        .gist-marker {
+            background: #fff3cd;
+            border: 2px dashed #ffc107;
+            padding: 12px;
+            border-radius: 5px;
+            margin: 1em 0;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .mobile-fallback {
+            font-style: italic;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 0.5em;
+        }
+        hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+    </style>
+</head>
+<body>
+
+<h1>How to Transform Your Databricks App into an AI-Powered MCP Server in 30 Minutes</h1>
+<p><em>Turn any FastAPI application into a tool that AI agents can call using natural language — no ML expertise required</em></p>
+
+<hr>
+
+<h2>The AI Integration Problem Nobody Talks About</h2>
+
+<p>You've built a beautiful Databricks App. It has a clean REST API, a React frontend, and it does exactly what your team needs. But then someone asks: "Can we ask the AI to do this for us?"</p>
+
+<p>Suddenly you're facing a wall of complexity. Custom integrations. API wrappers. Prompt engineering. Authentication flows. What should take an afternoon becomes a multi-sprint project.</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/problem_solution.png" alt="Problem to Solution">
+<figcaption>Adding AI capabilities to existing apps shouldn't require rebuilding everything</figcaption>
+</figure>
+
+<p>Here's the thing: <strong>your existing API functions are already the tools the AI needs</strong>. You just need to expose them in a format AI agents understand.</p>
+
+<p>This article shows you how we transformed a Databricks cluster management app into an AI-accessible service in under 30 minutes — and how you can do the same with any FastAPI application.</p>
+
+<hr>
+
+<h2>What You'll Learn</h2>
+
+<p><strong>For Developers</strong> — <em>15 min read</em>: How to add MCP (Model Context Protocol) support to any FastAPI app with zero new dependencies</p>
+
+<p><strong>For Administrators</strong> — <em>10 min read</em>: How to configure Unity Catalog connections and test with AI Playground</p>
+
+<p><strong>For Everyone</strong> — <em>5 min</em>: The "secret sauce" of tool descriptions that makes AI routing actually work</p>
+
+<hr>
+
+<h2>The Architecture: Surprisingly Simple</h2>
+
+<p>Before diving into code, let's understand what we're building:</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/architecture.png" alt="Architecture Diagram">
+<figcaption>Your existing app + 150 lines of code = AI-accessible service</figcaption>
+</figure>
+
+<p>The magic happens through three components:</p>
+
+<ol>
+<li><strong>MCP Router</strong> — A JSON-RPC 2.0 endpoint (<code>/api/mcp</code>) that speaks the Model Context Protocol</li>
+<li><strong>Unity Catalog Connection</strong> — Registers your app as an "External MCP Server" with OAuth authentication</li>
+<li><strong>AI Playground</strong> — Where users interact with your tools using natural language</li>
+</ol>
+
+<p>The best part? Your existing business logic stays exactly the same. The MCP router just wraps your current functions.</p>
+
+<hr>
+
+<h2>Part 1: Developer Implementation</h2>
+
+<h3>No New Dependencies Required</h3>
+
+<p>If you're running a standard FastAPI app, you already have everything you need:</p>
+
+<p class="gist-marker">GIST #1 — Dependencies<br>https://gist.github.com/LaurentPRAT-DB/ea75479e7ef17215d07945de7fccf7c7</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/ea75479e7ef17215d07945de7fccf7c7.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/ea75479e7ef17215d07945de7fccf7c7">View raw code</a></p>
+
+<h3>Step 1: Create the MCP Router</h3>
+
+<p>Create a new file <code>routers/mcp.py</code>. This is the heart of the integration:</p>
+
+<p class="gist-marker">GIST #2 — JSON-RPC Models<br>https://gist.github.com/LaurentPRAT-DB/a7c02d71f38305ab193104d8611b74ec</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/a7c02d71f38305ab193104d8611b74ec.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/a7c02d71f38305ab193104d8611b74ec">View raw code</a></p>
+
+<h3>Step 2: Define Your Tools (This Is Where the Magic Happens)</h3>
+
+<p>Here's the critical insight that took us weeks to figure out: <strong>AI agents route requests based entirely on tool descriptions</strong>. A vague description means the AI won't know when to use your tool.</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/tool_description.png" alt="Tool Description Format">
+<figcaption>The 4-section format that makes AI routing reliable</figcaption>
+</figure>
+
+<p>Use this structured format for every tool:</p>
+
+<p class="gist-marker">GIST #3 — Tool Definition with 4-Section Format<br>https://gist.github.com/LaurentPRAT-DB/a7d21468ccb53c0baa76126bbd077a38</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/a7d21468ccb53c0baa76126bbd077a38.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/a7d21468ccb53c0baa76126bbd077a38">View raw code</a></p>
+
+<p><strong>The Description Sections:</strong></p>
+<ol>
+<li><strong>HEADER</strong> — Action verb + purpose (<code>LIST AND SEARCH CLUSTERS</code>)</li>
+<li><strong>RETURNS</strong> — Specific fields the AI will receive</li>
+<li><strong>USE THIS TOOL WHEN</strong> — 10+ example user requests (this is critical!)</li>
+<li><strong>DO NOT USE FOR</strong> — Clarify boundaries with other tools</li>
+</ol>
+
+<h3>Step 3: Connect Tools to Your Existing Functions</h3>
+
+<p>This is where you reuse your existing code:</p>
+
+<p class="gist-marker">GIST #4 — Tool Execution Function<br>https://gist.github.com/LaurentPRAT-DB/8f0d8572a33ea21d14dc5c557f629ef5</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/8f0d8572a33ea21d14dc5c557f629ef5.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/8f0d8572a33ea21d14dc5c557f629ef5">View raw code</a></p>
+
+<h3>Step 4: Implement the MCP Protocol Handlers</h3>
+
+<p>Three methods are required by the MCP protocol:</p>
+
+<p class="gist-marker">GIST #5 — MCP Protocol Handlers<br>https://gist.github.com/LaurentPRAT-DB/7d105567497d69ada6999e95f9b9a8b7</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/7d105567497d69ada6999e95f9b9a8b7.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/7d105567497d69ada6999e95f9b9a8b7">View raw code</a></p>
+
+<h3>Step 5: Register the Router</h3>
+
+<p class="gist-marker">GIST #6 — Router Registration<br>https://gist.github.com/LaurentPRAT-DB/d5550a13c8d7f9874017b6f5bf654d38</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/d5550a13c8d7f9874017b6f5bf654d38.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/d5550a13c8d7f9874017b6f5bf654d38">View raw code</a></p>
+
+<p><strong>That's it for the code!</strong> About 150 lines total, and most of it is boilerplate you can copy directly.</p>
+
+<hr>
+
+<h2>Part 2: Administrator Configuration</h2>
+
+<p>Now let's make this accessible from AI Playground.</p>
+
+<h3>Step 1: Deploy Your Updated App</h3>
+
+<p class="gist-marker">GIST #7 — Deployment Commands<br>https://gist.github.com/LaurentPRAT-DB/178a0c57620147e2b04417a52e5d87db</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/178a0c57620147e2b04417a52e5d87db.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/178a0c57620147e2b04417a52e5d87db">View raw code</a></p>
+
+<h3>Step 2: Get Your App's Service Principal Info</h3>
+
+<p class="gist-marker">GIST #8 — Get App Info and Create OAuth Secret<br>https://gist.github.com/LaurentPRAT-DB/d4477df3e29274392cf83d79f0943af5</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/d4477df3e29274392cf83d79f0943af5.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/d4477df3e29274392cf83d79f0943af5">View raw code</a></p>
+
+<h3>Step 3: Create the Unity Catalog Connection</h3>
+
+<p>Run this SQL in your Databricks SQL Editor:</p>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/sql-editor-create-connection.png" alt="SQL Editor">
+<figcaption>Creating the HTTP connection with MCP flag</figcaption>
+</figure>
+
+<p class="gist-marker">GIST #9 — CREATE CONNECTION SQL<br>https://gist.github.com/LaurentPRAT-DB/b4ea241f8234824a76cf02412df83e9b</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/b4ea241f8234824a76cf02412df83e9b.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/b4ea241f8234824a76cf02412df83e9b">View raw code</a></p>
+
+<h3>Step 4: Test with SQL First</h3>
+
+<p class="gist-marker">GIST #10 — Test Connection with SQL<br>https://gist.github.com/LaurentPRAT-DB/25a9018cc355c81d77b1cf4dc4eeff39</p>
+<script src="https://gist.github.com/LaurentPRAT-DB/25a9018cc355c81d77b1cf4dc4eeff39.js"></script>
+<p class="mobile-fallback">📱 On mobile? <a href="https://gist.github.com/LaurentPRAT-DB/25a9018cc355c81d77b1cf4dc4eeff39">View raw code</a></p>
+
+<hr>
+
+<h2>Part 3: Testing in AI Playground</h2>
+
+<p>This is the fun part — watching your app respond to natural language.</p>
+
+<h3>Add Your MCP Server</h3>
+
+<ol>
+<li>Navigate to <strong>AI/ML → Playground</strong></li>
+<li>Click the <strong>Tools</strong> button</li>
+</ol>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/playground-add-tool-dialog.png" alt="Add Tools Dialog">
+<figcaption>The Tools button opens the configuration panel</figcaption>
+</figure>
+
+<ol start="3">
+<li>Click the <strong>MCP Servers</strong> tab</li>
+</ol>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/playground-mcp-servers-tab.png" alt="MCP Servers Tab">
+<figcaption>Select MCP Servers to add external tools</figcaption>
+</figure>
+
+<ol start="4">
+<li>Under <strong>Unity Catalog Connection</strong>, find your connection</li>
+</ol>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/playground-connection-dropdown.png" alt="Connection Dropdown">
+<figcaption>Search for your connection name</figcaption>
+</figure>
+
+<ol start="5">
+<li>After adding, verify your tools appear</li>
+</ol>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/playground-tools-dialog.png" alt="Tools Panel">
+<figcaption>Your MCP tools should now be listed</figcaption>
+</figure>
+
+<h3>Test with Natural Language</h3>
+
+<p>Try asking questions like:</p>
+<ul>
+<li>"What clusters are currently running?"</li>
+<li>"Show me clusters that have been running for more than 24 hours"</li>
+<li>"Get details for cluster abc-123"</li>
+</ul>
+
+<figure>
+<img src="https://raw.githubusercontent.com/LaurentPRAT-DB/cluster-manager/main/docs/images/playground-test-result.png" alt="Successful Test">
+<figcaption>The AI correctly identifies the tool and returns formatted results</figcaption>
+</figure>
+
+<p>In this example, asking "What clusters are currently running?" correctly:</p>
+<ol>
+<li>Selected the <code>list_clusters</code> tool</li>
+<li>Applied the <code>state: "RUNNING"</code> filter</li>
+<li>Returned 21 clusters with relevant details</li>
+</ol>
+
+<hr>
+
+<h2>Common Gotchas (Save Yourself Hours)</h2>
+
+<h3>Gotcha 1: "My MCP server doesn't appear in Playground"</h3>
+<p><strong>Cause:</strong> Missing <code>is_mcp_connection = 'true'</code> in your SQL</p>
+<p><strong>Solution:</strong> Verify your CREATE CONNECTION includes this exact option</p>
+
+<h3>Gotcha 2: "curl returns empty response"</h3>
+<p><strong>Cause:</strong> MCP endpoints require authentication</p>
+<p><strong>Solution:</strong> Test via browser (while logged in) or use SQL <code>http_request()</code></p>
+
+<h3>Gotcha 3: "AI picks the wrong tool"</h3>
+<p><strong>Cause:</strong> Vague tool descriptions</p>
+<p><strong>Solution:</strong> Add more examples to "USE THIS TOOL WHEN" section (aim for 10+)</p>
+
+<h3>Gotcha 4: "Tools not updated after code changes"</h3>
+<p><strong>Cause:</strong> Bundle deploy doesn't trigger app restart</p>
+<p><strong>Solution:</strong> Run <code>databricks apps deploy</code> after <code>databricks bundle deploy</code></p>
+
+<hr>
+
+<h2>Try It Yourself: 3 Paths</h2>
+
+<h3>Path 1: Quick Exploration (5 min)</h3>
+<p>Browse our <a href="https://github.com/LaurentPRAT-DB/cluster-manager">complete implementation on GitHub</a> — especially <code>routers/mcp.py</code></p>
+
+<h3>Path 2: Add to Existing App (30 min)</h3>
+<ol>
+<li>Copy the MCP router template</li>
+<li>Define 2-3 tools wrapping your existing functions</li>
+<li>Deploy and create UC connection</li>
+<li>Test in Playground</li>
+</ol>
+
+<h3>Path 3: Deep Dive</h3>
+<p>Read the full <a href="https://github.com/LaurentPRAT-DB/cluster-manager/blob/main/docs/MCP_SERVER.md">MCP Server documentation</a> covering security, error handling, and Supervisor Agent integration</p>
+
+<hr>
+
+<h2>Resources</h2>
+
+<ul>
+<li><strong>GitHub Repository:</strong> <a href="https://github.com/LaurentPRAT-DB/cluster-manager">cluster-manager</a></li>
+<li><strong>MCP Protocol Spec:</strong> <a href="https://modelcontextprotocol.io">modelcontextprotocol.io</a></li>
+<li><strong>Databricks Apps Docs:</strong> <a href="https://docs.databricks.com/en/dev-tools/databricks-apps/index.html">Databricks Documentation</a></li>
+</ul>
+
+<hr>
+
+<h2>About the Author</h2>
+
+<p><em>Laurent Prat is a Solutions Architect at Databricks, helping customers build AI-powered data applications. When not writing code, he's probably explaining why tool descriptions need 10+ examples.</em></p>
+
+<hr>
+
+<p><strong>Did this save you time?</strong> Give it a clap and follow for more Databricks deep dives.</p>
+
+<p><em>Tags: #Databricks #MCP #AI #FastAPI #Python #LLM #AIAgents</em></p>
+
+</body>
+</html>
