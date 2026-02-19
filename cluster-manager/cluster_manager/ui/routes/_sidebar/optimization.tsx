@@ -1261,6 +1261,7 @@ function OptimizationPage() {
   const [autoscalingFilter, setAutoscalingFilter] = useState<{ type: "issue"; value: string } | null>(null);
   const [sparkConfigFilter, setSparkConfigFilter] = useState<{ type: "impact" | "severity"; value: string } | null>(null);
   const [jobsFilter, setJobsFilter] = useState<{ type: "target" | "reason"; value: string } | null>(null);
+  const [scheduleFilter, setScheduleFilter] = useState<{ type: "current" | "idle" | "cluster"; value: string } | null>(null);
 
   const handleOversizedSort = (field: SortField) => {
     setOversizedSort((prev) => ({
@@ -1592,10 +1593,40 @@ function OptimizationPage() {
     };
   }, [jobRecommendations]);
 
-  // Sorted data for Schedule
+  // Sorted and filtered data for Schedule
   const sortedScheduleRecommendations = useMemo(() => {
     if (!scheduleRecommendations) return [];
-    return [...scheduleRecommendations].sort((a, b) => {
+
+    // Apply filter first
+    let filtered = [...scheduleRecommendations];
+    if (scheduleFilter) {
+      if (scheduleFilter.type === "current") {
+        if (scheduleFilter.value === "none") {
+          filtered = filtered.filter((r) => !r.current_auto_terminate_minutes);
+        } else if (scheduleFilter.value === "configured") {
+          filtered = filtered.filter((r) => !!r.current_auto_terminate_minutes);
+        }
+      } else if (scheduleFilter.type === "idle") {
+        if (scheduleFilter.value === "high") {
+          filtered = filtered.filter((r) => r.avg_idle_time_per_day_minutes > 120);
+        } else if (scheduleFilter.value === "medium") {
+          filtered = filtered.filter((r) => r.avg_idle_time_per_day_minutes >= 60 && r.avg_idle_time_per_day_minutes <= 120);
+        } else if (scheduleFilter.value === "low") {
+          filtered = filtered.filter((r) => r.avg_idle_time_per_day_minutes < 60);
+        }
+      } else if (scheduleFilter.type === "cluster") {
+        if (scheduleFilter.value === "dlt") {
+          filtered = filtered.filter((r) => r.cluster_name.toLowerCase().startsWith("dlt-"));
+        } else if (scheduleFilter.value === "job") {
+          filtered = filtered.filter((r) => r.cluster_name.toLowerCase().startsWith("job-"));
+        } else if (scheduleFilter.value === "interactive") {
+          filtered = filtered.filter((r) => !r.cluster_name.toLowerCase().startsWith("dlt-") && !r.cluster_name.toLowerCase().startsWith("job-"));
+        }
+      }
+    }
+
+    // Then sort
+    return filtered.sort((a, b) => {
       const { field, direction } = scheduleSort;
       let comparison = 0;
       switch (field) {
@@ -1614,7 +1645,22 @@ function OptimizationPage() {
       }
       return direction === "asc" ? comparison : -comparison;
     });
-  }, [scheduleRecommendations, scheduleSort]);
+  }, [scheduleRecommendations, scheduleSort, scheduleFilter]);
+
+  // Compute schedule filter counts
+  const scheduleFilterCounts = useMemo(() => {
+    if (!scheduleRecommendations) return { none: 0, configured: 0, highIdle: 0, mediumIdle: 0, lowIdle: 0, dlt: 0, job: 0, interactive: 0 };
+    return {
+      none: scheduleRecommendations.filter((r) => !r.current_auto_terminate_minutes).length,
+      configured: scheduleRecommendations.filter((r) => !!r.current_auto_terminate_minutes).length,
+      highIdle: scheduleRecommendations.filter((r) => r.avg_idle_time_per_day_minutes > 120).length,
+      mediumIdle: scheduleRecommendations.filter((r) => r.avg_idle_time_per_day_minutes >= 60 && r.avg_idle_time_per_day_minutes <= 120).length,
+      lowIdle: scheduleRecommendations.filter((r) => r.avg_idle_time_per_day_minutes < 60).length,
+      dlt: scheduleRecommendations.filter((r) => r.cluster_name.toLowerCase().startsWith("dlt-")).length,
+      job: scheduleRecommendations.filter((r) => r.cluster_name.toLowerCase().startsWith("job-")).length,
+      interactive: scheduleRecommendations.filter((r) => !r.cluster_name.toLowerCase().startsWith("dlt-") && !r.cluster_name.toLowerCase().startsWith("job-")).length,
+    };
+  }, [scheduleRecommendations]);
 
   const tabs = [
     { id: "oversized" as const, label: "Oversized Clusters", icon: TrendingDown },
@@ -2913,6 +2959,133 @@ function OptimizationPage() {
               Recommendations to optimize auto-termination and idle time settings.
             </p>
 
+            {/* Filter chips */}
+            {scheduleRecommendations && scheduleRecommendations.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="text-xs text-muted-foreground mr-1">Filter by:</span>
+                {/* Current setting filters */}
+                {scheduleFilterCounts.none > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "current" && scheduleFilter.value === "none" ? null : { type: "current", value: "none" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "current" && scheduleFilter.value === "none"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    <X size={12} />
+                    No Auto-terminate ({scheduleFilterCounts.none})
+                  </button>
+                )}
+                {scheduleFilterCounts.configured > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "current" && scheduleFilter.value === "configured" ? null : { type: "current", value: "configured" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "current" && scheduleFilter.value === "configured"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    <CheckCircle size={12} />
+                    Has Setting ({scheduleFilterCounts.configured})
+                  </button>
+                )}
+                <span className="text-muted-foreground mx-1">|</span>
+                {/* Idle time filters */}
+                {scheduleFilterCounts.highIdle > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "idle" && scheduleFilter.value === "high" ? null : { type: "idle", value: "high" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "idle" && scheduleFilter.value === "high"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    High Idle &gt;2h ({scheduleFilterCounts.highIdle})
+                  </button>
+                )}
+                {scheduleFilterCounts.mediumIdle > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "idle" && scheduleFilter.value === "medium" ? null : { type: "idle", value: "medium" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "idle" && scheduleFilter.value === "medium"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    Medium 1-2h ({scheduleFilterCounts.mediumIdle})
+                  </button>
+                )}
+                {scheduleFilterCounts.lowIdle > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "idle" && scheduleFilter.value === "low" ? null : { type: "idle", value: "low" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "idle" && scheduleFilter.value === "low"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    Low &lt;1h ({scheduleFilterCounts.lowIdle})
+                  </button>
+                )}
+                <span className="text-muted-foreground mx-1">|</span>
+                {/* Cluster type filters */}
+                {scheduleFilterCounts.dlt > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "cluster" && scheduleFilter.value === "dlt" ? null : { type: "cluster", value: "dlt" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "cluster" && scheduleFilter.value === "dlt"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    DLT Pipelines ({scheduleFilterCounts.dlt})
+                  </button>
+                )}
+                {scheduleFilterCounts.job > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "cluster" && scheduleFilter.value === "job" ? null : { type: "cluster", value: "job" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "cluster" && scheduleFilter.value === "job"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    Job Clusters ({scheduleFilterCounts.job})
+                  </button>
+                )}
+                {scheduleFilterCounts.interactive > 0 && (
+                  <button
+                    onClick={() => setScheduleFilter(scheduleFilter?.type === "cluster" && scheduleFilter.value === "interactive" ? null : { type: "cluster", value: "interactive" })}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      scheduleFilter?.type === "cluster" && scheduleFilter.value === "interactive"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                    )}
+                  >
+                    Interactive ({scheduleFilterCounts.interactive})
+                  </button>
+                )}
+                {scheduleFilter && (
+                  <button
+                    onClick={() => setScheduleFilter(null)}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X size={12} />
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+
             {scheduleLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -2920,7 +3093,7 @@ function OptimizationPage() {
             ) : scheduleRecommendations && scheduleRecommendations.length > 0 ? (
               scheduleView === "cards" ? (
                 <div className="space-y-4">
-                  {scheduleRecommendations.map((rec, idx) => (
+                  {sortedScheduleRecommendations.map((rec, idx) => (
                     <div
                       key={idx}
                       className="p-4 bg-muted/50 rounded-lg border border-transparent hover:border-primary/20 transition-colors"
