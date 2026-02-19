@@ -317,13 +317,11 @@ def get_cluster_events(
     logger.info(f"Getting events for cluster {cluster_id}")
 
     try:
-        events_response = ws.clusters.events(
-            cluster_id=cluster_id,
-            limit=limit,
-        )
-
+        # ws.clusters.events() returns a generator of ClusterEvent objects
         events = []
-        for event in events_response.events or []:
+        for i, event in enumerate(ws.clusters.events(cluster_id=cluster_id)):
+            if i >= limit:
+                break
             events.append(ClusterEvent(
                 cluster_id=cluster_id,
                 timestamp=_ms_to_datetime(event.timestamp) or datetime.now(timezone.utc),
@@ -333,8 +331,8 @@ def get_cluster_events(
 
         return ClusterEventsResponse(
             events=events,
-            next_page_token=events_response.next_page.end_time if events_response.next_page else None,
-            total_count=events_response.total_count or len(events),
+            next_page_token=None,  # Generator doesn't provide pagination info
+            total_count=len(events),
         )
     except Exception as e:
         logger.error(f"Failed to get events for cluster {cluster_id}: {e}")
