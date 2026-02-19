@@ -1663,7 +1663,7 @@ function OptimizationPage() {
   }, [scheduleRecommendations]);
 
   const tabs = [
-    { id: "oversized" as const, label: "Oversized Clusters", icon: TrendingDown },
+    { id: "oversized" as const, label: "Cluster Sizing", icon: TrendingDown },
     { id: "spark-config" as const, label: "Spark Config", icon: Settings },
     { id: "cost" as const, label: "Cost Optimization", icon: DollarSign },
     { id: "autoscaling" as const, label: "Autoscaling", icon: ArrowUpDown },
@@ -1714,8 +1714,6 @@ function OptimizationPage() {
               icon={AlertTriangle}
               subtitle=">= 20 workers"
               variant={summary.oversized_clusters > 0 ? "warning" : "default"}
-              onClick={() => setClusterFilter(clusterFilter === "oversized" ? "all" : "oversized")}
-              isSelected={clusterFilter === "oversized"}
             />
             <MetricCard
               title="Underutilized"
@@ -1723,8 +1721,6 @@ function OptimizationPage() {
               icon={TrendingDown}
               subtitle=">= 10 workers"
               variant={summary.underutilized_clusters > 0 ? "warning" : "default"}
-              onClick={() => setClusterFilter(clusterFilter === "underutilized" ? "all" : "underutilized")}
-              isSelected={clusterFilter === "underutilized"}
             />
             <MetricCard
               title="Potential Savings"
@@ -1765,27 +1761,64 @@ function OptimizationPage() {
       <div className="bg-card rounded-lg border">
         {activeTab === "oversized" && (
           <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-yellow-500" />
-                <h2 className="text-lg font-semibold">Potentially Oversized Clusters</h2>
-                {clusterFilter !== "all" && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
-                    {clusterFilter === "oversized" ? "Oversized (≥20 workers)" : "Underutilized (10-19 workers)"}
-                    <button
-                      onClick={() => setClusterFilter("all")}
-                      className="ml-1 hover:text-primary/70"
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                )}
-              </div>
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingDown className="h-5 w-5 text-yellow-500" />
+              <h2 className="text-lg font-semibold">Cluster Sizing Analysis</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              These clusters have 5+ workers and may have excess capacity based on estimated utilization.
-              {clusterFilter === "all" && " Click on 'Oversized' or 'Underutilized' cards above to filter."}
+              Clusters with 5+ workers that may have excess capacity based on estimated utilization.
             </p>
+
+            {/* Filter chips */}
+            {oversizedClusters && oversizedClusters.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="text-xs text-muted-foreground mr-1">Filter by:</span>
+                <button
+                  onClick={() => setClusterFilter(clusterFilter === "all" ? "all" : "all")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    clusterFilter === "all"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                  )}
+                >
+                  All ({oversizedClusters.length})
+                </button>
+                <button
+                  onClick={() => setClusterFilter(clusterFilter === "oversized" ? "all" : "oversized")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    clusterFilter === "oversized"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                  )}
+                >
+                  <AlertTriangle size={12} />
+                  Oversized ≥20 ({oversizedClusters.filter(c => c.current_workers >= 20).length})
+                </button>
+                <button
+                  onClick={() => setClusterFilter(clusterFilter === "underutilized" ? "all" : "underutilized")}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    clusterFilter === "underutilized"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                  )}
+                >
+                  <TrendingDown size={12} />
+                  Underutilized 10-19 ({oversizedClusters.filter(c => c.current_workers >= 10 && c.current_workers < 20).length})
+                </button>
+                {clusterFilter !== "all" && (
+                  <button
+                    onClick={() => setClusterFilter("all")}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <X size={12} />
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
 
             {oversizedLoading ? (
               <div className="flex items-center justify-center py-12">
