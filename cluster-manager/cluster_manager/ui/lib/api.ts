@@ -160,13 +160,6 @@ export interface ScheduleOptimizationRecommendation {
   reason: string;
 }
 
-export interface MetricsCollectionResponse {
-  success: boolean;
-  message: string;
-  clusters_processed: number;
-  metrics_persisted: boolean;
-}
-
 // API functions
 async function fetchApi<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -346,62 +339,6 @@ export function useScheduleRecommendations() {
     queryFn: () =>
       fetchApi<ScheduleOptimizationRecommendation[]>("/api/optimization/schedule-recommendations"),
     refetchInterval: 60000,
-  });
-}
-
-export function useCollectMetrics() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () =>
-      fetchApi<MetricsCollectionResponse>("/api/optimization/collect-metrics", { method: "POST" }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["optimization-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["oversized-clusters"] });
-      queryClient.invalidateQueries({ queryKey: ["job-recommendations"] });
-      queryClient.invalidateQueries({ queryKey: ["schedule-recommendations"] });
-      queryClient.invalidateQueries({ queryKey: ["utilization-trends"] });
-    },
-  });
-}
-
-export interface TrendDataPoint {
-  date: string;
-  total_clusters: number;
-  oversized_count: number;
-  underutilized_count: number;
-  avg_efficiency: number;
-  total_dbu: number;
-  total_uptime_hours: number;
-  efficiency_moving_avg: number;
-  dbu_moving_avg: number;
-  oversized_moving_avg: number;
-}
-
-export interface TrendSummary {
-  period_days: number;
-  moving_avg_window: number;
-  data_points: number;
-  current_efficiency?: number;
-  efficiency_trend?: string;
-  current_dbu_daily?: number;
-  dbu_trend?: string;
-  message?: string;
-}
-
-export interface UtilizationTrends {
-  summary: TrendSummary;
-  trends: TrendDataPoint[];
-}
-
-export function useUtilizationTrends(days = 30, movingAvgWindow = 7) {
-  return useQuery({
-    queryKey: ["utilization-trends", days, movingAvgWindow],
-    queryFn: () =>
-      fetchApi<UtilizationTrends>(
-        `/api/optimization/trends?days=${days}&moving_avg_window=${movingAvgWindow}`
-      ),
-    refetchInterval: 120000, // Refresh every 2 minutes
   });
 }
 
